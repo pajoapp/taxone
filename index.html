@@ -1,0 +1,2094 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>دستیار تکالیف مالیاتی</title>
+<meta name="description" content="ابزار خوداظهاری تکالیف و جرایم مالیاتی و درخواست مشاوره" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --ink:#1B2A45; --ink-soft:#4A5876; --paper:#F7F4EC; --paper-alt:#EFE9D8;
+    --card:#FFFFFF; --gold:#B8862E; --gold-light:#E7C878; --red:#A23B3B;
+    --red-soft:#F3E2E0; --green:#3F7A5D; --green-soft:#E1EDE5; --line:#DCD4BC;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Vazirmatn', Tahoma, Arial, sans-serif;
+    background:var(--paper); color:var(--ink);
+    min-height:100vh; line-height:1.6;
+  }
+  ::selection{background:var(--gold-light);}
+  a{color:inherit;}
+  button{font-family:inherit; cursor:pointer;}
+  .container{max-width:960px; margin:0 auto; padding:0 16px;}
+  .hidden{display:none !important;}
+
+  .site-header{border-bottom:1px solid var(--line); padding:18px 0;}
+  .site-header .inner{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+  .brand{display:flex; align-items:center; gap:12px; min-width:0;}
+  .brand-badge{width:44px; height:44px; border-radius:12px; background:var(--ink); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .brand-name{font-weight:800; font-size:16px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .brand-tagline{font-size:12px; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60vw;}
+  .header-actions{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+
+  .disclaimer{font-size:12px; border-radius:12px; padding:10px 12px; display:flex; align-items:flex-start; gap:8px; background:var(--red-soft); color:var(--red); margin:14px 0 4px;}
+  .warn-banner{font-size:12px; border-radius:12px; padding:10px 12px; display:flex; align-items:flex-start; gap:8px; background:#FCEFD1; color:#7a5b06; margin:0 0 14px;}
+  .error-banner{font-size:12px; border-radius:12px; padding:10px 12px; display:flex; align-items:flex-start; gap:8px; background:#3a1414; color:#ffd7d0; margin:0 0 14px;}
+
+  .site-footer{padding:24px 0 32px;}
+  .site-footer .inner{border-top:1px solid var(--line); padding-top:14px; font-size:12px; text-align:center; color:var(--ink-soft);}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:20px; box-shadow:0 1px 2px rgba(27,42,69,.05); margin-bottom:16px;}
+  .card.narrow{max-width:440px; margin:24px auto;}
+
+  .btn{display:inline-flex; align-items:center; gap:6px; border-radius:10px; padding:10px 16px; font-size:14px; font-weight:700; border:none; transition:transform .1s, opacity .15s;}
+  .btn:active{transform:scale(.96);}
+  .btn:disabled{opacity:.5; cursor:not-allowed; transform:none;}
+  .btn-primary{background:var(--ink); color:#fff;}
+  .btn-gold{background:var(--gold); color:#fff;}
+  .btn-ghost{background:transparent; color:var(--ink); border:1px solid var(--line);}
+  .btn-danger{background:var(--red-soft); color:var(--red);}
+  .btn-sm{padding:7px 10px; font-size:12px; border-radius:8px;}
+  .btn-row{display:flex; justify-content:space-between; gap:8px; margin-top:20px; flex-wrap:wrap;}
+  .btn-row.start{justify-content:flex-start;}
+  .icon-btn{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:8px; display:inline-flex; align-items:center; justify-content:center;}
+  .icon-btn.danger{background:var(--red-soft); border:none;}
+
+  .badge{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px; white-space:nowrap;}
+  .badge-gold{background:var(--gold-light); color:#5c4109;}
+  .badge-red{background:var(--red-soft); color:var(--red);}
+  .badge-green{background:var(--green-soft); color:var(--green);}
+  .badge-ink{background:var(--paper-alt); color:var(--ink);}
+
+  label.field{display:block; margin-bottom:14px;}
+  .field-label{display:block; font-size:13.5px; font-weight:700; margin-bottom:6px; color:var(--ink);}
+  .field-hint{display:block; font-size:11.5px; margin-top:5px; color:var(--ink-soft);}
+  .field-error{display:block; font-size:11.5px; margin-top:5px; color:var(--red);}
+  input[type=text], input[type=password], input[type=number], input[type=tel], select, textarea{
+    border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:10px;
+    padding:10px 12px; font-size:14px; font-family:inherit; width:100%; outline:none;
+  }
+  input:focus, select:focus, textarea:focus{border-color:var(--gold); box-shadow:0 0 0 3px rgba(184,134,46,.15);}
+  textarea{resize:vertical; line-height:1.8;}
+  .checkbox-row{display:flex; align-items:center; gap:8px; font-size:13.5px; padding:4px 0; cursor:pointer; user-select:none;}
+  .checkbox-row input{width:16px; height:16px; flex-shrink:0;}
+  .radio-row{display:flex; align-items:center; gap:8px; font-size:13.5px; padding:4px 0; cursor:pointer; user-select:none;}
+  .radio-row input{width:16px; height:16px; flex-shrink:0;}
+  .search-wrap{position:relative; max-width:320px;}
+  .search-wrap input{padding-left:12px; padding-right:34px;}
+  .search-wrap .search-icon{position:absolute; right:10px; top:50%; transform:translateY(-50%); color:var(--ink-soft); pointer-events:none;}
+
+  .section-eyebrow{font-size:11.5px; font-weight:800; color:var(--gold); margin-bottom:4px; letter-spacing:.02em;}
+  .section-title{display:flex; align-items:center; gap:8px; margin:0 0 18px;}
+  .section-title h2{font-size:19px; font-weight:800; margin:0; color:var(--ink);}
+  .section-title.tight{margin-bottom:0;}
+  .section-title-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
+
+  .muted{color:var(--ink-soft); font-size:13.5px;}
+  .small-muted{color:var(--ink-soft); font-size:12px;}
+
+  .grid2{display:grid; grid-template-columns:1fr; gap:14px;}
+  .grid3{display:grid; grid-template-columns:1fr; gap:12px;}
+  .grid4{display:grid; grid-template-columns:repeat(2,1fr); gap:10px;}
+  @media(min-width:680px){
+    .grid2{grid-template-columns:1fr 1fr;}
+    .grid3{grid-template-columns:repeat(3,1fr);}
+    .grid4{grid-template-columns:repeat(4,1fr);}
+  }
+  .col-span-2{grid-column:1/-1;}
+
+  .choice-card{text-align:right; border-radius:16px; padding:18px; border:1px solid var(--line); background:var(--paper-alt); transition:transform .12s; width:100%;}
+  .choice-card:hover{transform:translateY(-2px);}
+  .choice-card .title{font-weight:800; margin-top:8px; color:var(--ink);}
+  .choice-card .desc{font-size:12px; margin-top:4px; color:var(--ink-soft);}
+
+  .option-btn{display:block; width:100%; text-align:right; border-radius:12px; padding:12px 14px; border:1px solid var(--line); background:var(--paper-alt); color:var(--ink); font-weight:700; font-size:13.5px; margin-bottom:9px;}
+
+  .progress-tabs{display:flex; gap:6px; margin-bottom:22px; overflow-x:auto; padding-bottom:4px;}
+  .progress-tab{flex-shrink:0; display:flex; align-items:center; gap:5px; padding:6px 12px; border-radius:999px; font-size:11.5px; font-weight:800; background:var(--paper-alt); color:var(--ink-soft); white-space:nowrap;}
+  .progress-tab.active{background:var(--ink); color:#fff;}
+  .progress-tab.done{background:var(--green-soft); color:var(--green);}
+
+  .block{border-radius:14px; padding:14px; background:var(--paper-alt);}
+  .block + .block{margin-top:10px;}
+  .block.outline-gold{border:1.5px solid var(--gold);}
+  .block.outline-transparent{border:1.5px solid transparent;}
+  .stack{display:flex; flex-direction:column; gap:10px;}
+
+  .admin-tabs{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px;}
+  .admin-tab{display:flex; align-items:center; gap:6px; padding:8px 13px; border-radius:999px; font-size:12px; font-weight:800; background:var(--paper-alt); color:var(--ink-soft); border:none;}
+  .admin-tab.active{background:var(--ink); color:#fff;}
+
+  .admin-row{border-radius:14px; padding:14px; background:var(--paper-alt); display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+  .admin-row .row-main{min-width:0; flex:1;}
+  .admin-row .row-title{font-weight:800; font-size:13.5px; color:var(--ink);}
+  .admin-row .row-sub{font-size:12px; margin-top:4px; line-height:1.8; color:var(--ink-soft);}
+  .admin-row .row-actions{display:flex; gap:6px; flex-shrink:0;}
+
+  .form-box{border-radius:14px; padding:16px; background:var(--paper-alt); margin-bottom:18px;}
+  .opt-box{border-radius:10px; padding:10px; background:var(--card); border:1px solid var(--line); margin-bottom:8px;}
+  .opt-row{display:flex; gap:8px; align-items:center; margin-bottom:8px;}
+  .multi-check{display:flex; flex-direction:column; gap:2px; max-height:150px; overflow-y:auto; border:1px solid var(--line); border-radius:10px; padding:8px;}
+
+  .stat-box{border-radius:14px; padding:14px; background:var(--paper-alt);}
+  .stat-value{font-size:18px; font-weight:800; margin-top:8px; color:var(--ink);}
+  .stat-label{font-size:12px; margin-top:4px; color:var(--ink-soft);}
+
+  .summary-box{border-radius:14px; padding:14px; margin-top:8px; background:var(--ink); color:#fff;}
+  .summary-row{display:flex; justify-content:space-between; font-size:13.5px;}
+  .summary-row + .summary-row{margin-top:4px;}
+
+  .lead-plan{text-align:right; border-radius:12px; padding:14px; border:1px solid var(--line); background:var(--card); width:100%;}
+  .lead-plan.selected{border-color:var(--gold); background:var(--paper-alt);}
+  .lead-plan .p-title{font-weight:800; font-size:13.5px; color:var(--ink);}
+  .lead-plan .p-dur{font-size:12px; margin-top:3px; color:var(--ink-soft);}
+  .lead-plan .p-price{font-weight:800; margin-top:8px;}
+  .lead-plan .p-desc{font-size:12px; margin-top:5px; line-height:1.7; color:var(--ink-soft);}
+
+  .success-box{border-radius:14px; padding:14px; background:var(--green-soft); color:var(--green);}
+  .success-box .title-row{display:flex; align-items:center; gap:8px; font-weight:700;}
+
+  .lock-wrap{display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:18px;}
+  .lock-badge{width:52px; height:52px; border-radius:14px; background:var(--ink); display:flex; align-items:center; justify-content:center; margin-bottom:10px;}
+  .lock-wrap h2{margin:0; font-size:17px; font-weight:800; color:var(--ink);}
+  .lock-wrap p{margin:4px 0 0; font-size:12px; color:var(--ink-soft);}
+
+  .alert-box{font-size:12px; border-radius:12px; padding:10px 12px; margin-top:10px;}
+  .alert-box.error{background:var(--red-soft); color:var(--red);}
+  .alert-box.info{background:var(--red-soft); color:var(--red); display:flex; gap:6px; align-items:flex-start;}
+  .alert-box.ok{background:var(--green-soft); color:var(--green); display:flex; gap:6px; align-items:flex-start;}
+
+  code.tpl-var{background:var(--card); border:1px solid var(--line); border-radius:6px; padding:1px 6px; font-size:11.5px;}
+  pre.code-block{background:#0f172a; color:#d8e2f3; border-radius:12px; padding:14px; font-size:12px; overflow-x:auto; direction:ltr; text-align:left; line-height:1.7;}
+
+  svg.ic{flex-shrink:0;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .spin{animation:spin 1s linear infinite;}
+  .loading-wrap{min-height:60vh; display:flex; align-items:center; justify-content:center;}
+  .loading-wrap .inner{display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--ink-soft);}
+
+  .ad-marquee{background:linear-gradient(90deg,#1B2A45,#3a2f12,#1B2A45); color:var(--gold-light); overflow:hidden; white-space:nowrap; padding:11px 0; border-radius:12px; margin:14px 0; border:1px solid var(--gold);}
+  .ad-marquee .track{display:inline-block; padding-right:100%; animation:adscroll 20s linear infinite;}
+  .ad-marquee:hover .track{animation-play-state:paused;}
+  @keyframes adscroll{ 0%{transform:translateX(0);} 100%{transform:translateX(-100%);} }
+  .ad-marquee .track span{padding:0 40px; font-size:14px; font-weight:800; letter-spacing:.01em;}
+
+  .quota-pill{display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:800; padding:4px 10px; border-radius:999px; background:var(--paper-alt); color:var(--ink-soft); margin-bottom:10px;}
+  .sync-pill{display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px;}
+  .sync-pill.online{background:var(--green-soft); color:var(--green);}
+  .sync-pill.offline{background:var(--red-soft); color:var(--red);}
+  .sync-pill.connecting{background:var(--paper-alt); color:var(--ink-soft);}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="loading-wrap"><div class="inner"><span>در حال بارگذاری...</span></div></div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   دستیار تکالیف مالیاتی — نسخه استاتیک تک‌فایلی (بدون نیاز به بیلد)
+   محل استقرار: GitHub Pages (یا هر هاست استاتیک دیگر)
+   محل ذخیره‌سازی داده: Firebase Realtime Database (تنها منبع ذخیره خارجی)
+   ============================================================ */
+
+/* ============================================================
+   تنظیمات Firebase
+   این کلیدها همان کلیدهایی هستند که از پروژه Firebase شما کپی شده‌اند.
+   نیازی به ساخت پروژه جدید نیست، اما برای اینکه هماهنگی بین کاربران/
+   دستگاه‌های مختلف درست کار کند، باید دو مرحله زیر را در کنسول Firebase
+   انجام دهید (کامل توضیح داده شده در بخش «راهنما» در پنل مدیریت):
+     ۱) Authentication → Sign-in method → Anonymous را Enable کنید.
+     ۲) Realtime Database → Rules را با محتوای زیر جایگزین و Publish کنید:
+        {
+          "rules": {
+            "endtax_app_v1": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            }
+          }
+        }
+   بدون این دو مرحله، Firebase به‌طور پیش‌فرض نوشتن/خواندن را برای کاربران
+   ناشناس رد می‌کند و به همین دلیل تغییرات فقط در همان مرورگری که ساخته
+   شده ذخیره می‌ماند (چون به‌صورت محلی/localStorage نمایش داده می‌شود) و
+   به بقیه کاربران و دستگاه‌ها نمی‌رسد.
+   ============================================================ */
+var FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAXtXkOCbstd3_MKYDbEmL-kbHfNTME_Rs",
+  authDomain: "endtax-2d555.firebaseapp.com",
+  databaseURL: "https://endtax-2d555-default-rtdb.firebaseio.com",
+  projectId: "endtax-2d555",
+  storageBucket: "endtax-2d555.firebasestorage.app",
+  messagingSenderId: "989982113452",
+  appId: "1:989982113452:web:87af975beaa8c266342909"
+};
+var FB_ROOT = "endtax_app_v1";
+var FB_KEYS = ['questions','obligations','penalties','templates','plans','meta','leads','licenses','licenseLogs','users'];
+var fbEnabled = false;
+var fbApp = null;
+var fbDb = null;
+var fbAuthObj = null;
+var fbAuthReady = false;
+var fbSyncStatus = 'connecting'; /* connecting | online | offline | error */
+var fbErrorMsg = '';
+
+try{
+  if(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf('PASTE_') !== 0){
+    fbApp = firebase.initializeApp(FIREBASE_CONFIG);
+    fbDb = firebase.database();
+    fbAuthObj = firebase.auth();
+    fbEnabled = true;
+  } else {
+    fbSyncStatus = 'offline';
+  }
+}catch(e){
+  console.error('Firebase init error', e);
+  fbEnabled = false;
+  fbSyncStatus = 'offline';
+}
+
+function handleFbWriteError(err){
+  console.error('Firebase write error', err);
+  fbSyncStatus = 'error';
+  fbErrorMsg = 'ذخیره روی Firebase ناموفق بود (' + (err && (err.code||err.message) || 'خطای نامشخص') + '). به احتمال زیاد Rules دیتابیس یا فعال بودن Anonymous Auth را باید بررسی کنید — به بخش «راهنما» در پنل مدیریت مراجعه کنید.';
+  render();
+}
+function handleFbReadError(err){
+  console.error('Firebase read error', err);
+  fbSyncStatus = 'error';
+  fbErrorMsg = 'خواندن اطلاعات از Firebase ناموفق بود (' + (err && (err.code||err.message) || 'خطای نامشخص') + '). به احتمال زیاد Rules دیتابیس یا فعال بودن Anonymous Auth را باید بررسی کنید — به بخش «راهنما» در پنل مدیریت مراجعه کنید.';
+  render();
+}
+
+/* برای هر کلید: اگر روی Firebase چیزی نبود، مقدار محلی فعلی (seed) را یک‌بار
+   می‌نویسیم تا این مقدار به‌عنوان منبع مشترک برای همه کاربران باقی بماند؛
+   سپس به تغییرات آینده گوش می‌دهیم. */
+function fbSyncKey(key){
+  if(!fbEnabled) return;
+  var ref = fbDb.ref(FB_ROOT + '/' + key);
+  ref.once('value').then(function(snap){
+    if(!snap.exists()){
+      ref.set(DB[key]).catch(handleFbWriteError);
+    }
+    ref.on('value', function(snap2){
+      var val = snap2.val();
+      if(val === null || val === undefined) return;
+      DB[key] = (key === 'meta') ? Object.assign({}, SEED_META, val) : val;
+      fbSyncStatus = 'online'; fbErrorMsg = '';
+      render();
+    }, handleFbReadError);
+  }).catch(handleFbReadError);
+}
+function fbWrite(key){
+  if(!fbEnabled) return;
+  fbDb.ref(FB_ROOT + '/' + key).set(DB[key]).then(function(){
+    fbSyncStatus = 'online'; fbErrorMsg = '';
+  }).catch(handleFbWriteError);
+}
+function fbStartAllSync(){ FB_KEYS.forEach(fbSyncKey); }
+function fbBoot(){
+  if(!fbEnabled){ fbSyncStatus = 'offline'; return; }
+  fbAuthObj.signInAnonymously().then(function(){
+    fbAuthReady = true;
+    fbSyncStatus = 'online';
+    fbErrorMsg = '';
+    fbStartAllSync();
+    render();
+  }).catch(function(err){
+    console.error('Firebase anonymous sign-in error', err);
+    fbSyncStatus = 'error';
+    fbErrorMsg = 'ورود ناشناس (Anonymous Auth) به Firebase ناموفق بود (' + (err && err.code || '') + '). در کنسول Firebase باید Authentication → Sign-in method → Anonymous را Enable کنید — جزئیات در بخش «راهنما».';
+    render();
+  });
+}
+
+/* ---------------------------------------------------------- */
+/*  آیکن‌های SVG ساده                                           */
+/* ---------------------------------------------------------- */
+function ic(name, size, color){
+  size = size || 16; color = color || 'currentColor';
+  var p = {
+    lock:'<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3" fill="none"/>',
+    check:'<path d="M4 12.5l5 5L20 6" fill="none"/>',
+    alert:'<path d="M12 3l10 18H2L12 3z" fill="none"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17.2" r="1"/>',
+    info:'<circle cx="12" cy="12" r="9" fill="none"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="1"/>',
+    settings:'<circle cx="12" cy="12" r="3" fill="none"/><path d="M19 12a7 7 0 0 0-.2-1.6l2-1.6-2-3.4-2.4.7a7 7 0 0 0-2.8-1.6L13 2h-2l-.6 2.5a7 7 0 0 0-2.8 1.6l-2.4-.7-2 3.4 2 1.6a7 7 0 0 0 0 3.2l-2 1.6 2 3.4 2.4-.7a7 7 0 0 0 2.8 1.6L11 22h2l.6-2.5a7 7 0 0 0 2.8-1.6l2.4.7 2-3.4-2-1.6c.13-.5.2-1 .2-1.6z" fill="none"/>',
+    trash:'<path d="M4 7h16" /><path d="M9 7V4h6v3" fill="none"/><path d="M6 7l1 13h10l1-13" fill="none"/>',
+    edit:'<path d="M4 20l1-4 12-12 3 3-12 12-4 1z" fill="none"/>',
+    phone:'<path d="M6 3l3 1 .5 3-2 2c1 2.5 3 4.5 5.5 5.5l2-2 3 .5 1 3c0 1-1 2-2 2C10 18 4 12 3 5c0-1 1-2 2-2z" fill="none"/>',
+    plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+    left:'<polyline points="15 18 9 12 15 6" fill="none"/>',
+    right:'<polyline points="9 18 15 12 9 6" fill="none"/>',
+    copy:'<rect x="9" y="9" width="11" height="11" rx="2" fill="none"/><path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none"/>',
+    download:'<path d="M12 3v12" /><polyline points="7 11 12 16 17 11" fill="none"/><path d="M5 20h14" />',
+    calendar:'<rect x="3" y="5" width="18" height="16" rx="2" fill="none"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/>',
+    shield:'<path d="M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3z" fill="none"/>',
+    x:'<line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/>',
+    logout:'<path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4" fill="none"/><polyline points="16 17 21 12 16 7" fill="none"/><line x1="21" y1="12" x2="9" y2="12"/>',
+    search:'<circle cx="10.5" cy="10.5" r="6.5" fill="none"/><line x1="20" y1="20" x2="15" y2="15"/>',
+    scale:'<line x1="12" y1="3" x2="12" y2="21"/><path d="M5 7l-3 7a3.5 3.5 0 0 0 7 0L6 7z" fill="none"/><path d="M19 7l-3 7a3.5 3.5 0 0 0 7 0L20 7z" fill="none"/><line x1="5" y1="7" x2="19" y2="7"/><line x1="8" y1="21" x2="16" y2="21"/>',
+    doc:'<path d="M7 3h7l4 4v14H7z" fill="none"/><path d="M14 3v4h4" fill="none"/>',
+    inbox:'<path d="M4 12h4l2 3h4l2-3h4" fill="none"/><path d="M5 5h14l2 7v7H3v-7z" fill="none"/>',
+    users:'<circle cx="9" cy="8" r="3" fill="none"/><path d="M3 20a6 6 0 0 1 12 0" fill="none"/><circle cx="17" cy="9" r="2.5" fill="none"/><path d="M15 13.5c2.8.3 5 2 5 6.5" fill="none"/>',
+    trend:'<polyline points="3 17 9 11 13 15 21 6" fill="none"/><polyline points="15 6 21 6 21 12" fill="none"/>',
+    key:'<circle cx="8" cy="14" r="4" fill="none"/><path d="M11 11l9-9" fill="none"/><path d="M17 5l3 3" fill="none"/><path d="M14 8l2 2" fill="none"/>',
+    whatsapp:'<path d="M4 20l1.3-3.9A8 8 0 1 1 8.4 19L4 20z" fill="none"/><path d="M8.5 8.7c-.2 1 .4 2.2 1.3 3.2s2.1 1.6 3.2 1.3c.4-.1.7-.6.6-1l-.3-.8c-.1-.3-.4-.5-.7-.4l-.9.3c-.5-.3-1-.8-1.3-1.3l.3-.9c.1-.3-.1-.6-.4-.7l-.8-.3c-.4-.1-.9.2-1 .6z" fill="none"/>',
+    book:'<path d="M4 4h7v16H4z" fill="none"/><path d="M20 4h-7v16h7z" fill="none"/>',
+    wifi:'<path d="M2 8.5a16 16 0 0 1 20 0" fill="none"/><path d="M5.5 12a11 11 0 0 1 13 0" fill="none"/><path d="M9 15.5a6 6 0 0 1 6 0" fill="none"/><circle cx="12" cy="19" r="1"/>'
+  };
+  var body = p[name] || '';
+  return '<svg class="ic" width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+body+'</svg>';
+}
+
+/* ---------------------------------------------------------- */
+/*  کمک‌کننده‌ها                                                */
+/* ---------------------------------------------------------- */
+function genId(prefix){ return prefix+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7); }
+var ADMIN_SECRET = "panel-x7q2z9";
+function toman(n){ return (Number(n)||0).toLocaleString('fa-IR') + ' تومان'; }
+var IRAN_MOBILE_RE = /^0?9\d{9}$/;
+function esc(s){
+  return String(s===null||s===undefined?'':s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function nl2br(s){ return esc(s).replace(/\n/g,'<br/>'); }
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function toFa(n){ return Number(n).toLocaleString('fa-IR'); }
+function addMonthsIso(date, months){ var d = new Date(date); d.setMonth(d.getMonth()+Number(months||0)); return d.toISOString(); }
+
+/* ---------------------------------------------------------- */
+/*  داده نمونه — طراحی‌شده بر اساس جدول تکالیف/جرایم/بخشودگی/مواد قانونی
+      که کارفرما ارائه کرده است. این محتوا از پنل مدیریت به‌طور کامل
+      قابل ویرایش، حذف و اضافه است. پیش از استفاده واقعی، توسط کارشناس
+      مالیاتی/حقوقی بازبینی شود؛ نرخ‌ها و سقف‌ها هرساله در بودجه تغییر می‌کنند. */
+/* ---------------------------------------------------------- */
+var SEED_PENALTIES = [
+  { id:"p_pelmb", title:"عدم پلمب دفاتر قانونی (روزنامه و کل)", description:"۲۰٪ مالیات متعلق برای هر مورد (دفتر/ترازنامه) عدم ارائه.", calcType:"percent", value:20, amnestyEligible:true, amnestyPercent:50, installmentEligible:true, maxInstallments:12, legalArticle:"م ۹۵ و ۱۹۳ ق.م.م" },
+  { id:"p_annual_haghighi", title:"عدم تسلیم اظهارنامه عملکرد (اشخاص حقیقی)", description:"۱۰٪ مالیات متعلق، غیرقابل بخشودگی. در صورت پرداخت به‌موقع یا زودتر، جایزه خوش‌حسابی معادل ۱٪ مالیات تعلق می‌گیرد.", calcType:"percent", value:10, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:6, legalArticle:"م ۱۰۰ ق.م.م" },
+  { id:"p_annual_hoghughi", title:"عدم تسلیم اظهارنامه عملکرد (اشخاص حقوقی)", description:"۳۰٪ مالیات متعلق، غیرقابل بخشودگی. تخفیف نرخ مالیاتی تا ۵ واحد درصد برای افزایش درآمد ابرازی امکان‌پذیر است.", calcType:"percent", value:30, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:6, legalArticle:"م ۱۱۰ و ۱۹۲ ق.م.م" },
+  { id:"p_einvoice", title:"عدم صدور صورتحساب الکترونیکی", description:"۱۰٪ مجموع مبلغ فروش یا ۲۰ میلیون ریال (هرکدام بیشتر باشد). مودیان با فروش سالانه کمتر از نصاب تعیین‌شده معاف هستند.", calcType:"percent", value:10, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:6, legalArticle:"م ۲۲ ق.پ.ف" },
+  { id:"p_sabtnam_modian", title:"عدم ثبت‌نام در سامانه مؤدیان", description:"۱۰٪ فروش انجام‌شده یا ۲۰ میلیون ریال + محرومیت از معافیت‌ها. بخشودگی تا ۱۰۰٪ طبق بخشنامه‌های تسهیل ممکن است.", calcType:"percent", value:10, amnestyEligible:true, amnestyPercent:100, installmentEligible:true, maxInstallments:6, legalArticle:"م ۲۲ ق.پ.ف و قانون تسهیل" },
+  { id:"p_hesab_tejari", title:"عدم اعلام شماره حساب‌های تجاری", description:"۱۰٪ فروش انجام‌شده از آن حساب یا ۲۰ میلیون ریال + محرومیت از معافیت‌ها.", calcType:"percent", value:10, amnestyEligible:false, amnestyPercent:0, installmentEligible:false, maxInstallments:1, legalArticle:"م ۱۰ و ۲۲ ق.پ.ف" },
+  { id:"p_list_hoghugh", title:"عدم ارائه لیست حقوق و پرداخت مالیات حقوق", description:"۲٪ حقوق پرداختی برای عدم تسلیم لیست، و ۱۰٪ مالیات متعلق برای عدم پرداخت. معافیت سالانه معادل سقف تعیین‌شده در بودجه اعمال می‌شود.", calcType:"percent", value:10, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:12, legalArticle:"م ۸۶ و ۱۹۷ و ۱۹۹ ق.م.م" },
+  { id:"p_vat_late", title:"تأخیر در پرداخت مالیات بر ارزش افزوده", description:"۲٪ در ماه نسبت به مالیات پرداخت‌نشده. تخفیف ۲.۵٪ برای پرداخت پیش از موعد در نظر گرفته شده است.", calcType:"permonth_percent", value:2, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:6, legalArticle:"م ۳۷ ق.م.ا.ا و م ۱۹۰ ق.م.م" },
+  { id:"p_taghirat", title:"عدم اعلام تغییرات کسب‌وکار (شغل، محل، مالکیت)", description:"۱٪ فروش گزارش‌نشده یا ۱۰ میلیون ریال (هرکدام بیشتر باشد).", calcType:"percent", value:1, amnestyEligible:false, amnestyPercent:0, installmentEligible:false, maxInstallments:1, legalArticle:"م ۱۴ و ۲۲ ق.پ.ف" },
+  { id:"p_taatili", title:"عدم اعلام تعطیلی یا انحلال واحد", description:"۱٪ فروش گزارش‌نشده یا ۱۰ میلیون ریال (هرکدام بیشتر باشد).", calcType:"percent", value:1, amnestyEligible:false, amnestyPercent:0, installmentEligible:false, maxInstallments:1, legalArticle:"م ۱۳ و ۲۲ ق.پ.ف" },
+  { id:"p_fehrest_169", title:"عدم ارسال فهرست معاملات فصلی (خرید و فروش)", description:"۱٪ مبلغ معاملاتی که فهرست آن‌ها ارائه نشده است. در صورت صدور صورتحساب الکترونیکی در سامانه مؤدیان، مشمول جریمه نمی‌شود.", calcType:"percent", value:1, amnestyEligible:true, amnestyPercent:100, installmentEligible:true, maxInstallments:6, legalArticle:"م ۱۶۹ ق.م.م" },
+  { id:"p_naghl_melk", title:"تأخیر مالیات نقل و انتقال املاک", description:"جریمه تأخیر معادل ۲.۵٪ در ماه. معافیت درآمد مشمول مالیات سالانه مستغلات اعمال می‌شود.", calcType:"permonth_percent", value:2.5, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:12, legalArticle:"م ۵۹ و ۸۰ ق.م.م" },
+  { id:"p_vagozari", title:"تأخیر مالیات حق واگذاری محل", description:"جریمه تأخیر معادل ۲.۵٪ در ماه.", calcType:"permonth_percent", value:2.5, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:12, legalArticle:"م ۵۹ ق.م.م" },
+  { id:"p_khaneh_khali", title:"جریمه واحد مسکونی خالی", description:"جریمه‌ای معادل مالیات متعلقه در صورت عدم پرداخت. واحدهای مسکونی در شهرهای زیر ۱۰۰ هزار نفر مستثنی هستند.", calcType:"percent", value:100, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:12, legalArticle:"م ۵۴ مکرر ق.م.م" },
+  { id:"p_khodro", title:"جریمه تأخیر مالیات خودروهای گران‌قیمت", description:"شمول جریمه معادل ۲.۵٪ در ماه. معافیت تا سقف ارزش تعیین‌شده در قانون بودجه هرسال اعمال می‌شود.", calcType:"permonth_percent", value:2.5, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:12, legalArticle:"احکام بودجه سنواتی" },
+  { id:"p_naghs_fanni", title:"عدم رعایت تکلیف در صورت نقص فنی سامانه", description:"۱٪ فروش گزارش‌نشده یا ۱۰ میلیون ریال (هرکدام بیشتر باشد).", calcType:"percent", value:1, amnestyEligible:false, amnestyPercent:0, installmentEligible:false, maxInstallments:1, legalArticle:"م ۱۲ و ۲۲ ق.پ.ف" },
+  { id:"p_negahdari_asnad", title:"عدم نگهداری یا ارائه اسناد و مدارک مالی / دفاتر", description:"۲۰٪ مالیات متعلق در صورت عدم ارائه دفاتر و اسناد.", calcType:"percent", value:20, amnestyEligible:true, amnestyPercent:50, installmentEligible:true, maxInstallments:12, legalArticle:"م ۳۴ ق.م.ا.ا و ۱۹۳ ق.م.م" },
+  { id:"p_daftar_asnad_rasmi", title:"تخلف سردفتران و دفتریاران اسناد رسمی", description:"مسئولیت تضامنی در پرداخت مالیات به‌همراه ۱۰٪ تا ۲۰٪ جریمه.", calcType:"percent", value:15, amnestyEligible:false, amnestyPercent:0, installmentEligible:false, maxInstallments:1, legalArticle:"م ۱۸۵، ۱۹۹ و ۲۰۰ ق.م.م" },
+  { id:"p_tambr", title:"عدم ابطال تمبر مالیاتی (سرمایه، چک، قرارداد)", description:"معادل دو برابر حق تمبر. معافیت از حق تمبر برای افزایش سرمایه ناشی از ادغام یا ترکیب شرکت‌ها اعمال می‌شود.", calcType:"percent", value:200, amnestyEligible:false, amnestyPercent:0, installmentEligible:false, maxInstallments:1, legalArticle:"م ۴۴ تا ۵۱ ق.م.م" },
+  { id:"p_enhelal", title:"عدم تسلیم اظهارنامه انحلال", description:"۲٪ سرمایه پرداخت‌شده در زمان انحلال.", calcType:"percent", value:2, amnestyEligible:false, amnestyPercent:0, installmentEligible:false, maxInstallments:1, legalArticle:"م ۱۱۴ و ۱۹۵ ق.م.م" },
+  { id:"p_sodagari", title:"تأخیر پرداخت مالیات بر سوداگری و سفته‌بازی", description:"جریمه معادل ۲.۵٪ در ماه برای تأخیر در پرداخت. معافیت سالانه معادل سقف معافیت حقوق برای هر شخص اعمال می‌شود.", calcType:"permonth_percent", value:2.5, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:12, legalArticle:"م ۴۶ ق.م.م و قانون جدید" },
+  { id:"p_ejareh", title:"عدم ثبت قراردادهای اجاره در سامانه", description:"محرومیت از معافیت‌ها و تخفیفات مالیاتی (جریمه غیرنقدی؛ اثر مالی از طریق از دست دادن معافیت اعمال می‌شود).", calcType:"fixed", value:0, amnestyEligible:false, amnestyPercent:0, installmentEligible:false, maxInstallments:1, legalArticle:"م ۵۴ مکرر و مکرر ۱۶۹ ق.م.م" },
+  { id:"p_bazrasi_181", title:"عدم ارائه اسناد در بازرسی مالیاتی (هیأت ۱۸۱)", description:"محرومیت از معافیت‌های مالیاتی سال مورد مراجعه (جریمه غیرنقدی).", calcType:"fixed", value:0, amnestyEligible:false, amnestyPercent:0, installmentEligible:false, maxInstallments:1, legalArticle:"م ۱۸۱ ق.م.م" },
+  { id:"p_einvoice_moaf", title:"عدم صدور صورتحساب برای کالا/خدمات معاف", description:"۱۰٪ فروش یا ۲۰ میلیون ریال (هرکدام بیشتر باشد).", calcType:"percent", value:10, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:6, legalArticle:"تبصره ۱ ماده ۲ ق.پ.ف" },
+  { id:"p_kharidar", title:"عدم اعتراض به‌موقع خریدار به صورتحساب دریافتی", description:"عدم امکان استفاده از اعتبار مالیاتی برای خریدار تجاری (جریمه غیرنقدی).", calcType:"fixed", value:0, amnestyEligible:false, amnestyPercent:0, installmentEligible:false, maxInstallments:1, legalArticle:"م ۵ ق.پ.ف و تبصره آن" },
+  { id:"p_register", title:"عدم ثبت‌نام در نظام مالیاتی و اخذ کد اقتصادی", description:"در صورت عدم ثبت‌نام به‌موقع، تشخیص مالیات به‌صورت علی‌الرأس انجام می‌شود و مشمول جرایم عدم تسلیم اظهارنامه نیز خواهد شد.", calcType:"fixed", value:15000000, amnestyEligible:true, amnestyPercent:30, installmentEligible:true, maxInstallments:6, legalArticle:"م ۱۷۶ و ۱۹۲ ق.م.م" }
+];
+
+var SEED_OBLIGATIONS = [
+  { id:"o_register", title:"ثبت‌نام در نظام مالیاتی و اخذ کد اقتصادی", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"ثبت‌نام در سامانه امور مالیاتی و تکمیل اطلاعات هویتی/شغلی برای فعالیت‌های جدید.", deadline:"حداکثر ۲ ماه پس از شروع فعالیت یا ثبت شرکت", penaltyIds:["p_register"] },
+  { id:"o_pelmb", title:"پلمب دفاتر قانونی (روزنامه و کل)", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"پلمب و تحریر دفاتر قانونی برای مودیان مشمول نگهداری دفاتر (گروه‌های اول تا سوم بر اساس حجم فعالیت).", deadline:"قبل از شروع سال مالی جدید", penaltyIds:["p_pelmb"] },
+  { id:"o_annual_haghighi", title:"تسلیم اظهارنامه مالیات بر عملکرد (مشاغل)", appliesTo:["حقیقی"], fixed:true, description:"ارسال اظهارنامه سالانه عملکرد برای صاحبان درآمد مشاغل.", deadline:"حداکثر تا پایان خرداد ماه سال بعد", penaltyIds:["p_annual_haghighi"] },
+  { id:"o_annual_hoghughi", title:"تسلیم اظهارنامه مالیات بر عملکرد (شرکت‌ها)", appliesTo:["حقوقی"], fixed:true, description:"ارسال اظهارنامه سالانه عملکرد برای شرکت‌ها و مؤسسات.", deadline:"حداکثر ۴ ماه پس از پایان سال مالی", penaltyIds:["p_annual_hoghughi"] },
+  { id:"o_einvoice", title:"صدور صورتحساب الکترونیکی", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"صدور صورتحساب الکترونیکی برای اشخاص تجاری مشمول فراخوان‌های سازمان بر اساس حجم فروش.", deadline:"در زمان فروش کالا یا خدمت", penaltyIds:["p_einvoice"] },
+  { id:"o_sabtnam_modian", title:"ثبت‌نام در سامانه مؤدیان", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"ثبت‌نام در سامانه مؤدیان برای کلیه اشخاص مشمول قانون پایانه‌های فروشگاهی.", deadline:"ظرف یک هفته از شروع فعالیت", penaltyIds:["p_sabtnam_modian"] },
+  { id:"o_hesab_tejari", title:"اعلام شماره حساب‌های تجاری", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"اعلام حساب‌های بانکی تجاری به سازمان امور مالیاتی.", deadline:"همزمان با اعلام حساب به سازمان", penaltyIds:["p_hesab_tejari"] },
+  { id:"o_list_hoghugh", title:"ارائه لیست حقوق و پرداخت مالیات تکلیفی", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"کسر و ارسال لیست مالیات حقوق کارکنان برای کارفرمایانی که حقوق پرداخت می‌کنند.", deadline:"حداکثر تا پایان ماه بعد از پرداخت حقوق", penaltyIds:["p_list_hoghugh"] },
+  { id:"o_vat_return", title:"تسلیم اظهارنامه و پرداخت مالیات بر ارزش افزوده", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"ارسال اظهارنامه فصلی ارزش افزوده برای مشمولین این نظام مالیاتی.", deadline:"حداکثر تا پایان ماه پس از انقضای هر دوره فصلی", penaltyIds:["p_vat_late"] },
+  { id:"o_taghirat", title:"اعلام تغییرات کسب‌وکار (شغل، محل، مالکیت)", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"اعلام هرگونه تغییر در شغل، محل فعالیت یا مالکیت به سازمان.", deadline:"ظرف ۱۰ روز از تاریخ تغییر", penaltyIds:["p_taghirat"] },
+  { id:"o_taatili", title:"اعلام تعطیلی یا انحلال واحد فعالیت", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"اعلام توقف بهره‌برداری یا تعطیلی واحد فعالیت.", deadline:"ظرف ۱۰ روز از توقف بهره‌برداری", penaltyIds:["p_taatili"] },
+  { id:"o_fehrest_169", title:"ارسال فهرست معاملات فصلی (خرید و فروش)", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"گزارش خرید و فروش‌های فصلی بالای حد نصاب موضوع ماده ۱۶۹.", deadline:"حداکثر ۴۵ روز پس از پایان هر فصل", penaltyIds:["p_fehrest_169"] },
+  { id:"o_naghl_melk", title:"مالیات نقل و انتقال املاک", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"پرداخت مالیات نقل و انتقال قطعی املاک هنگام انتقال.", deadline:"در زمان ثبت سند رسمی", penaltyIds:["p_naghl_melk"] },
+  { id:"o_vagozari", title:"مالیات حق واگذاری محل کسب", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"پرداخت مالیات حق واگذاری محل کسب هنگام واگذاری.", deadline:"در زمان واگذاری", penaltyIds:["p_vagozari"] },
+  { id:"o_khaneh_khali", title:"مالیات واحدهای مسکونی خالی", appliesTo:["حقیقی"], fixed:false, description:"پرداخت مالیات برای واحدهای مسکونی خالی در شهرهای بزرگ.", deadline:"یک ماه پس از ابلاغ برگ مطالبه", penaltyIds:["p_khaneh_khali"] },
+  { id:"o_khodro", title:"مالیات خودروهای گران‌قیمت", appliesTo:["حقیقی"], fixed:false, description:"پرداخت مالیات سالانه برای خودروهای با ارزش بیش از سقف تعیین‌شده در بودجه.", deadline:"حداکثر تا پایان بهمن ماه", penaltyIds:["p_khodro"] },
+  { id:"o_naghs_fanni", title:"رعایت تکلیف در صورت نقص فنی سامانه مؤدیان", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"گزارش‌دهی جایگزین در صورت بروز مشکل فنی سامانه مؤدیان.", deadline:"تا پایان روز اداری بعد", penaltyIds:["p_naghs_fanni"] },
+  { id:"o_negahdari_asnad", title:"نگهداری اسناد و مدارک مالی و دفاتر", appliesTo:["حقیقی","حقوقی"], fixed:true, description:"نگهداری کلیه اسناد، مدارک مالی و دفاتر قانونی برای ارائه در صورت درخواست سازمان.", deadline:"حداقل به مدت ۱۰ سال پس از پایان سال مالی", penaltyIds:["p_negahdari_asnad"] },
+  { id:"o_daftar_asnad_rasmi", title:"تکالیف صاحبان دفاتر اسناد رسمی", appliesTo:["حقیقی"], fixed:false, description:"وظایف قانونی سردفتران و دفتریاران اسناد رسمی در وصول و ایصال مالیات اسناد.", deadline:"حداکثر تا پایان ماه بعد", penaltyIds:["p_daftar_asnad_rasmi"] },
+  { id:"o_tambr", title:"ابطال تمبر مالیاتی (سرمایه، چک، قرارداد)", appliesTo:["حقوقی"], fixed:false, description:"ابطال حق تمبر بر اسناد سرمایه، چک و قراردادهای مشمول.", deadline:"در زمان صدور یا تجدید اسناد", penaltyIds:["p_tambr"] },
+  { id:"o_enhelal", title:"تسلیم اظهارنامه انحلال", appliesTo:["حقوقی"], fixed:false, description:"تسلیم اظهارنامه انحلال توسط مدیران تصفیه اشخاص حقوقی در حال انحلال.", deadline:"ظرف ۶ ماه از تاریخ ثبت انحلال", penaltyIds:["p_enhelal"] },
+  { id:"o_sodagari", title:"مالیات بر سوداگری و سفته‌بازی", appliesTo:["حقیقی"], fixed:false, description:"پرداخت مالیات بر معاملات مکرر اموال با ماهیت سوداگرانه.", deadline:"طبق مواعد تعیین‌شده در سامانه مؤدیان", penaltyIds:["p_sodagari"] },
+  { id:"o_ejareh", title:"ثبت قراردادهای اجاره در سامانه", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"ثبت قرارداد اجاره توسط موجران و مشاوران املاک در سامانه.", deadline:"زمان انعقاد قرارداد", penaltyIds:["p_ejareh"] },
+  { id:"o_bazrasi_181", title:"آمادگی ارائه اسناد در بازرسی مالیاتی (هیأت ۱۸۱)", appliesTo:["حقیقی","حقوقی"], fixed:true, description:"در صورت مراجعه هیأت بازرسی موضوع ماده ۱۸۱، اسناد و مدارک باید در دسترس باشد.", deadline:"زمان مراجعه هیأت بازرسی", penaltyIds:["p_bazrasi_181"] },
+  { id:"o_einvoice_moaf", title:"صدور صورتحساب برای کالا/خدمات معاف از مالیات", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"صدور صورتحساب مطابق دستورالعمل حتی برای کالاها و خدمات معاف.", deadline:"مطابق دستورالعمل صدور صورتحساب", penaltyIds:["p_einvoice_moaf"] },
+  { id:"o_kharidar", title:"بررسی و تأیید/اعتراض به صورتحساب خرید در کارپوشه", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"بررسی صورتحساب‌های ثبت‌شده در کارپوشه مالیاتی و اعتراض در صورت نیاز.", deadline:"ظرف ۳۰ روز از تاریخ درج در کارپوشه", penaltyIds:["p_kharidar"] }
+];
+
+/* سوالات به‌صورت شاخه‌ای (branching): هر گزینه می‌تواند تکلیف(های) مرتبط را
+   فعال کند و در صورت لزوم با end:true بلافاصله به مرحله «تکالیف» برود
+   (بدون پرسیدن سوالات باقیمانده) — طبق درخواست شماره ۱۰. */
+var SEED_QUESTIONS = [
+  { id:"q_activity", order:1, text:"آیا در حال حاضر فعالیت اقتصادی/شغلی دارید که هنوز پرونده مالیاتی برای آن ثبت نشده؟", appliesTo:["حقیقی","حقوقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_register"],end:false}, {id:"no",label:"خیر، قبلاً ثبت‌نام کرده‌ام",obligationIds:[],end:false} ] },
+  { id:"q_modian", order:2, text:"آیا فعالیت شما مشمول فراخوان ثبت‌نام در سامانه مؤدیان و صدور صورتحساب الکترونیکی شده است؟", appliesTo:["حقیقی","حقوقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_sabtnam_modian","o_einvoice"],end:false}, {id:"no",label:"خیر / نمی‌دانم",obligationIds:[],end:false} ] },
+  { id:"q_vat", order:3, text:"آیا مشمول نظام مالیات بر ارزش افزوده هستید؟", appliesTo:["حقیقی","حقوقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_vat_return"],end:false}, {id:"no",label:"خیر / نمی‌دانم",obligationIds:[],end:false} ] },
+  { id:"q_hesab_tejari", order:4, text:"آیا حساب بانکی تجاری برای کسب‌وکار خود دارید که هنوز به سازمان اعلام نکرده‌اید؟", appliesTo:["حقیقی","حقوقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_hesab_tejari"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
+  { id:"q_payroll", order:5, text:"آیا برای کارکنان خود حقوق پرداخت می‌کنید؟", appliesTo:["حقیقی","حقوقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_list_hoghugh"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
+  { id:"q_quarterly", order:6, text:"آیا معاملات خرید یا فروش قابل‌گزارش (بالای حد نصاب) در فصل اخیر داشته‌اید؟", appliesTo:["حقیقی","حقوقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_fehrest_169"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
+  { id:"q_change", order:7, text:"آیا در شغل، محل فعالیت یا مالکیت کسب‌وکار خود تغییری داشته‌اید؟", appliesTo:["حقیقی","حقوقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_taghirat"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
+  { id:"q_close", order:8, text:"آیا واحد فعالیت خود را تعطیل یا منحل کرده‌اید؟", appliesTo:["حقیقی","حقوقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_taatili"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
+  { id:"q_property", order:9, text:"آیا ملکی را منتقل کرده یا حق واگذاری محل کسبی را واگذار کرده‌اید؟", appliesTo:["حقیقی","حقوقی"],
+    options:[ {id:"transfer",label:"بله، انتقال ملک",obligationIds:["o_naghl_melk"],end:false}, {id:"vagozari",label:"بله، واگذاری حق کسب",obligationIds:["o_vagozari"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
+  { id:"q_rent", order:10, text:"آیا موجر (اجاره‌دهنده) یا مشاور املاک هستید و قرارداد اجاره منعقد کرده‌اید؟", appliesTo:["حقیقی","حقوقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_ejareh"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
+  { id:"q_einvoice_moaf", order:11, text:"آیا کالا یا خدمات معاف از مالیات عرضه می‌کنید؟", appliesTo:["حقیقی","حقوقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_einvoice_moaf"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
+  { id:"q_kharidar", order:12, text:"آیا صورتحساب خرید در کارپوشه مالیاتی شما ثبت شده که هنوز بررسی نکرده‌اید؟", appliesTo:["حقیقی","حقوقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_kharidar"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
+  { id:"q_khaneh_khali", order:13, text:"آیا واحد مسکونی خالی در شهرهای بزرگ در مالکیت دارید؟", appliesTo:["حقیقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_khaneh_khali"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
+  { id:"q_khodro", order:14, text:"آیا مالک خودرویی با ارزش بیش از سقف معافیت بودجه هستید؟", appliesTo:["حقیقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_khodro"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
+  { id:"q_sodagari", order:15, text:"آیا معاملات مکرر اموال با ماهیت سوداگرانه (غیرشغلی) داشته‌اید؟", appliesTo:["حقیقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_sodagari"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:true} ] },
+  { id:"q_daftar_asnad", order:14, text:"آیا سردفتر یا دفتریار اسناد رسمی هستید؟", appliesTo:["حقیقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_daftar_asnad_rasmi"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
+  { id:"q_tambr", order:16, text:"آیا اسناد مشمول حق تمبر (افزایش سرمایه، چک، قرارداد) صادر کرده‌اید؟", appliesTo:["حقوقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_tambr"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
+  { id:"q_enhelal", order:17, text:"آیا شرکت شما در حال طی مراحل انحلال است؟", appliesTo:["حقوقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_enhelal"],end:true}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
+  { id:"q_books", order:18, text:"آیا شرکت/کسب‌وکار شما ملزم به پلمب و نگهداری دفاتر قانونی است؟", appliesTo:["حقیقی","حقوقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o_pelmb"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] }
+];
+
+var SEED_TEMPLATES = [
+  { id:"t_general", title:"لایحه اعتراض عمومی به جریمه مالیاتی", body:
+"ریاست محترم امور مالیاتی / هیئت حل اختلاف مالیاتی\nموضوع: اعتراض به جریمه‌(های) مالیاتی موضوع پرونده مؤدی {{taxpayerType}}\n\nبا سلام و احترام؛\n\nاینجانب/این شرکت، مؤدی مالیاتی به شرح فوق، ضمن اعلام آمادگی برای همکاری کامل با آن اداره محترم، نسبت به جریمه‌(های) اعلامی زیر معترض بوده و درخواست بررسی مجدد و در نظر گرفتن تخفیف/بخشودگی قانونی را دارم:\n\nموارد جریمه:\n{{penaltiesList}}\n\nجمع جرایم قبل از بخشودگی: {{totalRaw}}\nجمع جرایم با احتساب بخشودگی احتمالی: {{totalAmnesty}}\n\nدلایل اعتراض (توسط کارشناس مالیاتی تکمیل شود):\n- ...\n- ...\n\nبا عنایت به موارد فوق و با استناد به مقررات مربوط به بخشودگی جرایم مالیاتی، خواهشمند است ضمن رسیدگی مجدد، نسبت به تعدیل یا بخشش جریمه(های) مذکور و در صورت امکان تقسیط مبلغ باقی‌مانده اقدام لازم مبذول فرمایید.\n\nبا تشکر\nتاریخ: {{date}}" },
+  { id:"t_installment", title:"درخواست تقسیط بدهی مالیاتی", body:
+"ریاست محترم اداره امور مالیاتی\nموضوع: درخواست تقسیط بدهی مالیاتی مؤدی {{taxpayerType}}\n\nبا سلام؛\n\nبا توجه به بدهی مالیاتی قطعی‌شده به مبلغ {{totalRaw}} ناشی از موارد زیر:\n{{penaltiesList}}\n\nو با عنایت به عدم امکان پرداخت یکجای این مبلغ، خواهشمند است با تقسیط مبلغ فوق در اقساط مناسب موافقت فرمایید.\n\nبا تشکر\nتاریخ: {{date}}" }
+];
+
+var SEED_PLANS = [
+  { id:"pl_free", title:"مشاوره تلفنی رایگان (۵ دقیقه)", price:0, duration:"۵ دقیقه", desc:"آشنایی اولیه با پرونده و راهنمایی کلی درباره مراحل بعدی." },
+  { id:"pl_standard", title:"مشاوره تخصصی مالیاتی", price:500000, duration:"۳۰ دقیقه", desc:"بررسی دقیق تکالیف، جرایم و راهکار عملی توسط کارشناس مالیاتی." },
+  { id:"pl_pro", title:"پیگیری پرونده اختصاصی توسط کارشناس", price:1000000, duration:"تا نتیجه پرونده", desc:"تنظیم لایحه حرفه‌ای، ارسال به اداره مالیاتی و پیگیری تا حصول نتیجه." }
+];
+
+var SEED_META = {
+  brandName:"دستیار تکالیف مالیاتی",
+  tagline:"بدانید چه تکلیفی دارید، چه موعدی، و چه جریمه‌ای در انتظار شماست.",
+  phone:"021-00000000",
+  whatsapp:"",
+  notifyEmail:"Msalimabadifarahani@gmail.com",
+  adminPassword:"123456",
+  defaultLicenseEnabled:true,
+  defaultLicenseCode:"123",
+  adText:"🔥 مشاوره تخصصی مالیاتی و تنظیم لایحه اعتراض توسط کارشناس مجرب — همین حالا تماس بگیرید ☎ 021-00000000 🔥",
+  adEnabled:true,
+  freeQueryLimit:3
+};
+
+var LEAD_STATUSES = ["جدید","در حال پیگیری","نهایی‌شده","بی‌پاسخ"];
+var LICENSE_DURATIONS = [ {months:1,label:"۱ ماهه"}, {months:6,label:"۶ ماهه"}, {months:12,label:"۱۲ ماهه (یک‌ساله)"} ];
+
+/* ---------------------------------------------------------- */
+/*  ذخیره‌سازی محلی (localStorage) — فقط به‌عنوان کش محلی مرورگر؛
+      منبع اصلی و مشترک همیشه Firebase Realtime Database است.      */
+/* ---------------------------------------------------------- */
+var NS = "taxapp_v1::";
+function lsGet(key){
+  try{ var raw = window.localStorage.getItem(NS+key); return raw===null ? null : JSON.parse(raw); }
+  catch(e){ return null; }
+}
+function lsSet(key, val){
+  try{ window.localStorage.setItem(NS+key, JSON.stringify(val)); return true; }
+  catch(e){ console.error("storage error", e); return false; }
+}
+function getOrSeed(key, seed){
+  var v = lsGet(key);
+  if(v !== null) return v;
+  lsSet(key, seed);
+  return seed;
+}
+
+var DB = { questions:[], obligations:[], penalties:[], templates:[], plans:[], meta:{}, leads:[], licenses:[], licenseLogs:[], users:{} };
+
+function loadDB(){
+  DB.questions   = getOrSeed('questions', SEED_QUESTIONS);
+  DB.obligations = getOrSeed('obligations', SEED_OBLIGATIONS);
+  DB.penalties   = getOrSeed('penalties', SEED_PENALTIES);
+  DB.templates   = getOrSeed('templates', SEED_TEMPLATES);
+  DB.plans       = getOrSeed('plans', SEED_PLANS);
+  DB.meta        = Object.assign({}, SEED_META, getOrSeed('meta', SEED_META));
+  DB.leads       = getOrSeed('leads', []);
+  DB.licenses    = getOrSeed('licenses', []);
+  DB.licenseLogs = getOrSeed('licenseLogs', []);
+  DB.users       = getOrSeed('users', {});
+}
+function saveDB(key){ lsSet(key, DB[key]); fbWrite(key); }
+
+/* ---------------------------------------------------------- */
+/*  لایسنس‌ها — با مدت‌زمان انقضا (۱، ۶ یا ۱۲ ماهه) + یک لایسنس
+      پیش‌فرض دائمی «۱۲۳» که مدیر می‌تواند فعال/غیرفعال کند.        */
+/* ---------------------------------------------------------- */
+function checkLicense(code){
+  code = (code||'').trim();
+  if(!code) return false;
+  if(DB.meta.defaultLicenseEnabled !== false && code === (DB.meta.defaultLicenseCode || '123')) return true;
+  var lic = DB.licenses.filter(function(l){ return l.code === code; })[0];
+  if(!lic) return false;
+  if(lic.expiresAt && new Date(lic.expiresAt).getTime() < Date.now()) return false;
+  return true;
+}
+function isLicenseVerified(){
+  var code = lsGet('license_ok');
+  if(!code) return false;
+  return checkLicense(code);
+}
+function setLicenseVerified(code){ lsSet('license_ok', code); }
+function clearLicenseVerified(){ try{ window.localStorage.removeItem(NS+'license_ok'); }catch(e){} }
+
+/* ---------------------------------------------------------- */
+/*  ارسال ایمیل درخواست مشاوره (بدون نیاز به بک‌اند)             */
+/* ---------------------------------------------------------- */
+function sendLeadEmail(lead, notifyEmail){
+  if(!notifyEmail) return Promise.resolve({ok:false, reason:'no-email'});
+  return fetch('https://formsubmit.co/ajax/'+encodeURIComponent(notifyEmail), {
+    method:'POST',
+    headers:{'Content-Type':'application/json','Accept':'application/json'},
+    body:JSON.stringify({
+      _subject:'درخواست مشاوره مالیاتی جدید — '+lead.name,
+      "نام":lead.name,
+      "شماره_تماس":lead.phone,
+      "نوع_مودی":lead.personType || '-',
+      "بسته_انتخابی":lead.planTitle || '-',
+      "مجموع_جرایم_برآوردی":toman(lead.totalRaw),
+      "توضیحات":lead.note || '-',
+      "تاریخ_ثبت": new Date().toLocaleString('fa-IR')
+    })
+  }).then(function(res){
+    if(!res.ok) return {ok:false, reason:'http-'+res.status};
+    return {ok:true};
+  }).catch(function(){
+    return {ok:false, reason:'network'};
+  });
+}
+
+/* ---------------------------------------------------------- */
+/*  محاسبه جریمه                                                */
+/* ---------------------------------------------------------- */
+function calcAmount(p, input){
+  if(!p) return 0;
+  if(p.calcType === 'fixed') return p.value;
+  if(p.calcType === 'percent') return (Number(input && input.base) || 0) * (p.value/100);
+  if(p.calcType === 'permonth') return p.value * (Number(input && input.months) || 0);
+  if(p.calcType === 'permonth_percent') return (Number(input && input.base) || 0) * (p.value/100) * (Number(input && input.months) || 0);
+  return 0;
+}
+function calcTypeLabel(t){
+  if(t==='fixed') return 'مبلغ ثابت';
+  if(t==='percent') return 'درصدی از مالیات/مبلغ پایه';
+  if(t==='permonth') return 'مبلغ ثابت به ازای هر ماه تأخیر';
+  if(t==='permonth_percent') return 'درصدی از مبلغ پایه به ازای هر ماه تأخیر';
+  return t;
+}
+
+/* ---------------------------------------------------------- */
+/*  حالت برنامه (state)                                        */
+/* ---------------------------------------------------------- */
+var S = {
+  route:'user',
+  adminAuthed:false,
+  adminTab:'dashboard',
+  adminFailCount:0,
+  adminLockUntil:0,
+  adminError:'',
+  authPhone:'', authError:'',
+  wiz:{
+    step:'intro',
+    personType:null,
+    qId:null,
+    answers:{},
+    selected:{},
+    templateId:null,
+    layehaText:'',
+    lead:{name:'', phone:'', note:'', planId:null},
+    leadSent:false,
+    sendStatus:'idle',
+    licenseInput:'',
+    licenseError:'',
+    licenseFailCount:0,
+    licenseLockUntil:0,
+    copyMsg:''
+  },
+  leadsQuery:'',
+  formType:null,
+  formMode:null,
+  formId:null,
+  form:{},
+  settingsSaved:false,
+  newLicenseDuration:1
+};
+
+function render(){
+  var app = document.getElementById('app');
+  app.innerHTML = renderApp();
+}
+
+function renderApp(){
+  return (
+    renderHeader() +
+    '<div class="container">' +
+      renderDisclaimer() +
+      (S.route === 'user' ? (S.authPhone ? renderUserWizard() : renderAuthGate()) : (S.adminAuthed ? renderAdminPanel() : renderAdminGate())) +
+    '</div>' +
+    renderFooter()
+  );
+}
+
+function renderSyncPill(){
+  var label = fbSyncStatus==='online' ? 'متصل به Firebase' : (fbSyncStatus==='connecting' ? 'در حال اتصال...' : (fbSyncStatus==='offline' ? 'حالت آفلاین (محلی)' : 'خطای اتصال'));
+  var cls = fbSyncStatus==='online' ? 'online' : (fbSyncStatus==='connecting' ? 'connecting' : 'offline');
+  return '<span class="sync-pill '+cls+'">'+ic('wifi',12)+'<span>'+label+'</span></span>';
+}
+
+function renderHeader(){
+  var meta = DB.meta;
+  var actions = '';
+  if(S.route === 'admin' && S.adminAuthed){
+    actions = renderSyncPill() + '<button class="btn btn-ghost" onclick="logoutAdmin()">'+ic('logout',15)+'<span>خروج از مدیریت</span></button>';
+  }
+  return (
+    '<div class="site-header"><div class="container inner">' +
+      '<div class="brand">' +
+        '<div class="brand-badge">'+ic('shield',22,'#E7C878')+'</div>' +
+        '<div><div class="brand-name">'+esc(meta.brandName)+'</div><div class="brand-tagline">'+esc(meta.tagline)+'</div></div>' +
+      '</div>' +
+      '<div class="header-actions">' + actions + '</div>' +
+    '</div></div>'
+  );
+}
+
+function renderAdMarquee(){
+  var m = DB.meta;
+  if(!m.adEnabled || !m.adText) return '';
+  return (
+    '<div class="ad-marquee"><div class="track">' +
+      '<span>'+ic('trend',13,'var(--gold-light)')+' '+esc(m.adText)+'</span>' +
+      '<span>'+ic('trend',13,'var(--gold-light)')+' '+esc(m.adText)+'</span>' +
+    '</div></div>'
+  );
+}
+
+function renderDisclaimer(){
+  var warn = '';
+  if(!DB.meta.notifyEmail){
+    warn = '<div class="warn-banner">'+ic('alert',15)+'<span>ایمیل دریافت درخواست‌های مشاوره هنوز در تنظیمات پنل مدیریت وارد نشده؛ تا وارد نکنید، درخواست‌های کاربران فقط در پنل مدیریت ذخیره می‌شوند و ایمیلی ارسال نخواهد شد.</span></div>';
+  }
+  var errBanner = (fbSyncStatus==='error' && fbErrorMsg) ? '<div class="error-banner">'+ic('alert',15)+'<span>'+esc(fbErrorMsg)+'</span></div>' : '';
+  return (
+    '<div class="disclaimer">'+ic('alert',15)+'<span>این نسخه یک پروتوتایپ نمایشی است و تمام محتوای مالیاتی (سوالات، تکالیف، جرایم، نرخ‌ها) پیش از استفاده واقعی باید توسط کارشناس مالیاتی بازبینی و تکمیل شود، چون نرخ‌ها و سقف‌های معافیت هرساله در قانون بودجه تغییر می‌کنند. این ابزار جایگزین مشاوره حقوقی/مالیاتی رسمی نیست.</span></div>' +
+    errBanner +
+    warn +
+    (S.route==='user' ? renderAdMarquee() : '')
+  );
+}
+
+function renderFooter(){
+  return '<div class="site-footer"><div class="container inner">© '+(new Date().getFullYear())+' '+esc(DB.meta.brandName)+' — تمامی حقوق محفوظ است.</div></div>';
+}
+
+function goUser(){ S.route='user'; if(window.location.hash) window.location.hash=''; render(); window.scrollTo(0,0); }
+function goAdmin(){ S.route='admin'; render(); window.scrollTo(0,0); }
+function logoutAdmin(){ S.adminAuthed=false; S.route='user'; window.location.hash=''; render(); }
+function checkAdminHash(){
+  if(window.location.hash === '#'+ADMIN_SECRET){ S.route='admin'; }
+}
+window.addEventListener('hashchange', function(){ checkAdminHash(); render(); });
+
+/* ---------------------------------------------------------- */
+/*  ورود مدیر با رمز عبور (با محدودیت تلاش‌های ناموفق)           */
+/* ---------------------------------------------------------- */
+function renderAdminGate(){
+  var now = Date.now();
+  var locked = S.adminLockUntil > now;
+  var secLeft = locked ? Math.ceil((S.adminLockUntil-now)/1000) : 0;
+  return (
+    '<div class="card narrow">' +
+      '<div class="lock-wrap"><div class="lock-badge">'+ic('lock',22,'#E7C878')+'</div>' +
+        '<h2>ورود به پنل مدیریت</h2><p>لطفاً رمز عبور مدیریت را وارد کنید.</p></div>' +
+      '<label class="field"><span class="field-label">رمز عبور</span>' +
+        '<input type="password" id="adminPassInput" placeholder="••••••" '+(locked?'disabled':'')+' onkeydown="if(event.key===\'Enter\')tryAdminLogin();" />' +
+      '</label>' +
+      (S.adminError ? '<div class="field-error">'+esc(S.adminError)+'</div>' : '') +
+      '<div class="btn-row start">' +
+        '<button class="btn btn-gold" '+(locked?'disabled':'')+' onclick="tryAdminLogin()">'+ic('lock',15)+'<span>'+(locked ? ('قفل موقت ('+secLeft+' ثانیه)') : 'ورود')+'</span></button>' +
+        '<button class="btn btn-ghost" onclick="goUser()">انصراف</button>' +
+      '</div>' +
+      '<div class="alert-box info">'+ic('alert',14)+'<span>توجه: این قفل ساده در سمت مرورگر است و صرفاً برای جلوگیری از دسترسی تصادفی کاربران عادی است.</span></div>' +
+    '</div>'
+  );
+}
+function tryAdminLogin(){
+  if(S.adminLockUntil > Date.now()){ render(); return; }
+  var el = document.getElementById('adminPassInput');
+  var val = el ? el.value : '';
+  if(val === (DB.meta.adminPassword || '123456')){
+    S.adminAuthed = true; S.adminError=''; S.adminFailCount=0; S.adminTab='dashboard';
+  } else {
+    S.adminFailCount = (S.adminFailCount||0) + 1;
+    if(S.adminFailCount >= 5){
+      S.adminLockUntil = Date.now() + 20000;
+      S.adminError = 'تعداد تلاش‌های ناموفق زیاد بود. ۲۰ ثانیه صبر کنید.';
+      S.adminFailCount = 0;
+      scheduleUnlockTick();
+    } else {
+      S.adminError = 'رمز عبور اشتباه است.';
+    }
+  }
+  render();
+}
+function scheduleUnlockTick(){
+  setTimeout(function(){
+    if(S.route==='admin' && !S.adminAuthed){ render(); }
+    if(S.adminLockUntil > Date.now()) scheduleUnlockTick();
+  }, 1000);
+}
+
+/* ============================================================
+   جریان کاربر: ویزارد شاخه‌ای
+   ============================================================ */
+function orderedQuestionsFor(personType){
+  return DB.questions.filter(function(q){ return !q.appliesTo || q.appliesTo.indexOf(personType) !== -1; })
+    .slice().sort(function(a,b){ return (a.order||0)-(b.order||0); });
+}
+function currentQuestion(){
+  var qs = orderedQuestionsFor(S.wiz.personType);
+  return qs.filter(function(q){ return q.id === S.wiz.qId; })[0] || null;
+}
+function nextQuestionAfter(qId){
+  var qs = orderedQuestionsFor(S.wiz.personType);
+  var idx = qs.findIndex(function(q){ return q.id === qId; });
+  if(idx === -1 || idx+1 >= qs.length) return null;
+  return qs[idx+1];
+}
+function derivedObligationIds(){
+  var ids = {};
+  Object.keys(S.wiz.answers).forEach(function(qId){
+    var optId = S.wiz.answers[qId];
+    var q = DB.questions.filter(function(x){return x.id===qId;})[0];
+    var opt = q && q.options.filter(function(o){return o.id===optId;})[0];
+    (opt && opt.obligationIds || []).forEach(function(id){ ids[id]=true; });
+  });
+  return ids;
+}
+function fixedObligations(){
+  return DB.obligations.filter(function(o){ return o.fixed && (!o.appliesTo || o.appliesTo.indexOf(S.wiz.personType) !== -1); });
+}
+function derivedObligations(){
+  var ids = derivedObligationIds();
+  var fixedIds = {};
+  fixedObligations().forEach(function(o){ fixedIds[o.id]=true; });
+  return DB.obligations.filter(function(o){
+    return (ids[o.id] || fixedIds[o.id]) && (!o.appliesTo || o.appliesTo.indexOf(S.wiz.personType) !== -1);
+  });
+}
+function relatedPenaltyIds(){
+  var ids = {};
+  derivedObligations().forEach(function(o){ (o.penaltyIds||[]).forEach(function(id){ ids[id]=true; }); });
+  return ids;
+}
+function selectedPenalties(){
+  return DB.penalties.filter(function(p){ return S.wiz.selected[p.id] && S.wiz.selected[p.id].checked; });
+}
+function totalRawAmount(){
+  return selectedPenalties().reduce(function(s,p){ return s + calcAmount(p, S.wiz.selected[p.id]); }, 0);
+}
+function totalAmnestyAmount(){
+  return selectedPenalties().reduce(function(s,p){
+    var amt = calcAmount(p, S.wiz.selected[p.id]);
+    return s + (p.amnestyEligible ? amt*(1-p.amnestyPercent/100) : amt);
+  }, 0);
+}
+function buildLayeha(){
+  var tpl = DB.templates.filter(function(t){return t.id===S.wiz.templateId;})[0] || DB.templates[0];
+  if(!tpl) return '';
+  var list = selectedPenalties().map(function(p,i){
+    return (i+1)+'. '+p.title+' ('+(p.legalArticle||'')+') — مبلغ: '+toman(calcAmount(p, S.wiz.selected[p.id]));
+  }).join('\n');
+  return tpl.body
+    .split('{{taxpayerType}}').join(S.wiz.personType || '—')
+    .split('{{penaltiesList}}').join(list || '—')
+    .split('{{totalRaw}}').join(toman(totalRawAmount()))
+    .split('{{totalAmnesty}}').join(toman(totalAmnestyAmount()))
+    .split('{{date}}').join(new Date().toLocaleDateString('fa-IR'));
+}
+
+function goStep(step){
+  if(step === 'penalties' && !isLicenseVerified()){
+    S.wiz.step = 'license';
+    S.wiz.licenseError = '';
+  } else {
+    S.wiz.step = step;
+  }
+  render();
+  window.scrollTo(0,0);
+}
+
+function startWizard(type){
+  if(!hasQuotaOrLicense()){ S.wiz.step = 'quota'; render(); window.scrollTo(0,0); return; }
+  registerQueryUsage();
+  S.wiz.personType = type;
+  S.wiz.answers = {};
+  var qs = orderedQuestionsFor(type);
+  S.wiz.qId = qs.length ? qs[0].id : null;
+  S.wiz.step = qs.length ? 'questions' : 'obligations';
+  render();
+}
+
+function handleAnswer(optId){
+  var q = currentQuestion();
+  if(!q) return;
+  S.wiz.answers[q.id] = optId;
+  var opt = q.options.filter(function(o){return o.id===optId;})[0];
+  if(opt && opt.end){
+    S.wiz.step = 'obligations';
+    render();
+    return;
+  }
+  var nq = nextQuestionAfter(q.id);
+  if(nq){ S.wiz.qId = nq.id; }
+  else { S.wiz.step = 'obligations'; }
+  render();
+}
+
+function togglePenalty(id, checked){
+  S.wiz.selected[id] = Object.assign({}, S.wiz.selected[id]||{}, {checked:checked});
+  render();
+}
+function setPenaltyInput(id, field, value){
+  S.wiz.selected[id] = Object.assign({}, S.wiz.selected[id]||{}, {});
+  S.wiz.selected[id][field] = value;
+}
+
+function onEnterCalc(){ S.wiz.step = 'calc'; render(); }
+function onEnterLayeha(){
+  if(!S.wiz.templateId) S.wiz.templateId = (DB.templates[0] && DB.templates[0].id) || null;
+  S.wiz.layehaText = buildLayeha();
+  S.wiz.step = 'layeha';
+  render();
+}
+function onTemplateChange(v){
+  S.wiz.templateId = v;
+  S.wiz.layehaText = buildLayeha();
+  render();
+}
+function onLayehaTextChange(v){ S.wiz.layehaText = v; }
+
+function copyLayehaText(){
+  var ta = document.getElementById('layehaTextArea');
+  var text = ta ? ta.value : S.wiz.layehaText;
+  var done = function(){ S.wiz.copyMsg = 'متن کپی شد ✔'; render(); setTimeout(function(){ S.wiz.copyMsg=''; render(); }, 1800); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(function(){
+      S.wiz.copyMsg = 'کپی خودکار پشتیبانی نشد؛ متن را دستی انتخاب کنید.'; render();
+    });
+  } else {
+    S.wiz.copyMsg = 'کپی خودکار پشتیبانی نشد؛ متن را دستی انتخاب کنید.'; render();
+  }
+}
+function downloadLayehaText(){
+  var ta = document.getElementById('layehaTextArea');
+  var text = ta ? ta.value : S.wiz.layehaText;
+  downloadBlob(text, 'layeha-namoone.txt', 'text/plain;charset=utf-8');
+}
+function downloadBlob(content, filename, type){
+  var blob = new Blob([content], {type:type});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function submitLead(){
+  var nameEl = document.getElementById('leadNameInput');
+  var phoneEl = document.getElementById('leadPhoneInput');
+  var noteEl = document.getElementById('leadNoteInput');
+  S.wiz.lead.name = nameEl ? nameEl.value : S.wiz.lead.name;
+  S.wiz.lead.phone = phoneEl ? phoneEl.value : S.wiz.lead.phone;
+  S.wiz.lead.note = noteEl ? noteEl.value : S.wiz.lead.note;
+
+  if(!S.wiz.lead.name || !IRAN_MOBILE_RE.test((S.wiz.lead.phone||'').trim())) { render(); return; }
+
+  S.wiz.sendStatus = 'sending';
+  render();
+
+  var plan = DB.plans.filter(function(p){return p.id===S.wiz.lead.planId;})[0];
+  var newLead = {
+    id: genId('lead'),
+    name: S.wiz.lead.name, phone: S.wiz.lead.phone, note: S.wiz.lead.note,
+    planId: S.wiz.lead.planId, planTitle: plan ? plan.title : '',
+    personType: S.wiz.personType, totalRaw: totalRawAmount(),
+    status: 'جدید', createdAt: new Date().toISOString()
+  };
+  DB.leads.push(newLead); saveDB('leads');
+  S.wiz.leadSent = true;
+  render();
+
+  sendLeadEmail(newLead, DB.meta.notifyEmail).then(function(result){
+    S.wiz.sendStatus = result.ok ? 'sent' : 'error';
+    render();
+  });
+}
+
+function selectPlan(id){ S.wiz.lead.planId = id; render(); }
+
+function restartWizard(){
+  S.wiz = {
+    step:'intro', personType:null, qId:null, answers:{}, selected:{},
+    templateId:null, layehaText:'', lead:{name:'',phone:'',note:'',planId: (DB.plans[0]&&DB.plans[0].id)||null},
+    leadSent:false, sendStatus:'idle', licenseInput:'', licenseError:'',
+    licenseFailCount:0, licenseLockUntil:0, copyMsg:''
+  };
+  render();
+  window.scrollTo(0,0);
+}
+
+/* ---------------------------------------------------------- */
+/*  ثبت‌نام / ورود کاربر با شماره موبایل                        */
+/* ---------------------------------------------------------- */
+function restoreAuthSession(){
+  var p = lsGet('auth_phone');
+  if(p) S.authPhone = p;
+}
+function persistAuthSession(p){ lsSet('auth_phone', p); }
+function clearAuthSession(){ try{ window.localStorage.removeItem(NS+'auth_phone'); }catch(e){} S.authPhone=''; }
+function currentUserRecord(){ return DB.users[S.authPhone] || null; }
+
+function submitAuth(){
+  var nameEl = document.getElementById('authNameInput');
+  var phoneEl = document.getElementById('authPhoneInput');
+  var name = nameEl ? nameEl.value.trim() : '';
+  var phone = phoneEl ? phoneEl.value.trim() : '';
+  if(!name){ S.authError = 'لطفاً نام خود را وارد کنید.'; render(); return; }
+  if(!IRAN_MOBILE_RE.test(phone)){ S.authError = 'شماره موبایل معتبر نیست. مثال: 09121234567'; render(); return; }
+  var key = phone.replace(/^0/, '');
+  if(!DB.users[key]){
+    DB.users[key] = { name:name, phone:phone, queryCount:0, createdAt:new Date().toISOString() };
+  } else {
+    DB.users[key].name = name;
+  }
+  saveDB('users');
+  S.authPhone = key;
+  S.authError = '';
+  persistAuthSession(key);
+  render();
+  window.scrollTo(0,0);
+}
+function logoutUser(){ clearAuthSession(); restartWizard(); }
+
+function renderAuthGate(){
+  return (
+    '<div class="card narrow">' +
+      '<div class="lock-wrap"><div class="lock-badge">'+ic('users',22,'#E7C878')+'</div>' +
+        '<h2>ورود / ثبت‌نام</h2><p>برای استفاده از ابزار، نام و شماره موبایل خود را وارد کنید.</p></div>' +
+      '<label class="field"><span class="field-label">نام و نام خانوادگی</span>' +
+        '<input type="text" id="authNameInput" placeholder="مثلاً علی رضایی" /></label>' +
+      '<label class="field"><span class="field-label">شماره موبایل</span>' +
+        '<input type="tel" id="authPhoneInput" placeholder="09xxxxxxxxx" onkeydown="if(event.key===\'Enter\')submitAuth();" /></label>' +
+      (S.authError ? '<div class="field-error">'+esc(S.authError)+'</div>' : '') +
+      '<div class="btn-row start">' +
+        '<button class="btn btn-gold" onclick="submitAuth()">'+ic('check',15)+'<span>ورود و شروع</span></button>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+/* ---------------------------------------------------------- */
+/*  سقف استعلام رایگان (پیش‌فرض ۳ استعلام) — پس از پایان سهمیه،
+      کاربر باید از همان صفحه اول لایسنس وارد کند.                  */
+/* ---------------------------------------------------------- */
+function remainingFreeQueries(){
+  var u = currentUserRecord();
+  var used = u ? (u.queryCount||0) : 0;
+  var limit = (DB.meta.freeQueryLimit != null) ? DB.meta.freeQueryLimit : 3;
+  return Math.max(0, limit - used);
+}
+function hasQuotaOrLicense(){ return remainingFreeQueries() > 0 || isLicenseVerified(); }
+function registerQueryUsage(){
+  if(isLicenseVerified()) return;
+  var u = currentUserRecord();
+  if(!u) return;
+  u.queryCount = (u.queryCount||0) + 1;
+  saveDB('users');
+}
+function submitQuotaLicense(){
+  var el = document.getElementById('quotaLicenseInput');
+  var code = el ? el.value.trim() : '';
+  if(checkLicense(code)){
+    setLicenseVerified(code);
+    DB.licenseLogs.push({code:code, at:new Date().toISOString()});
+    saveDB('licenseLogs');
+    S.wiz.licenseError = '';
+    S.wiz.step = 'intro';
+  } else {
+    S.wiz.licenseError = 'کد لایسنس نامعتبر یا منقضی‌شده است. برای خرید اشتراک با پشتیبانی تماس بگیرید.';
+  }
+  render();
+}
+function renderQuotaGate(){
+  var m = DB.meta;
+  return (
+    '<div class="card narrow">' +
+      '<div class="lock-wrap"><div class="lock-badge">'+ic('lock',22,'#E7C878')+'</div>' +
+        '<h2>سقف استعلام رایگان تمام شد</h2>' +
+        '<p>شما از سهمیه '+toFa(m.freeQueryLimit!=null?m.freeQueryLimit:3)+' استعلام رایگان استفاده کرده‌اید. برای ادامه، اشتراک/لایسنس تهیه کنید یا کد لایسنس خود را وارد نمایید.</p></div>' +
+      '<label class="field"><span class="field-label">کد لایسنس (در صورت داشتن)</span>' +
+        '<input type="text" id="quotaLicenseInput" placeholder="کد لایسنس را وارد کنید" onkeydown="if(event.key===\'Enter\')submitQuotaLicense();" /></label>' +
+      (S.wiz.licenseError ? '<div class="field-error">'+esc(S.wiz.licenseError)+'</div>' : '') +
+      '<div class="btn-row start">' +
+        '<button class="btn btn-gold" onclick="submitQuotaLicense()">'+ic('key',15)+'<span>تأیید کد و ادامه</span></button>' +
+        (m.phone ? '<a class="btn btn-primary" href="tel:'+esc(m.phone)+'">'+ic('phone',15)+'<span>تماس برای خرید اشتراک</span></a>' : '') +
+        (m.whatsapp ? '<a class="btn btn-ghost" href="https://wa.me/'+esc(m.whatsapp)+'" target="_blank">'+ic('whatsapp',15)+'<span>واتس‌اپ</span></a>' : '') +
+      '</div>' +
+    '</div>'
+  );
+}
+
+/* ---------------------------------------------------------- */
+/*  گیت لایسنس — قبل از ورود به مرحله «جرایم»                    */
+/* ---------------------------------------------------------- */
+function submitLicense(){
+  if(S.wiz.licenseLockUntil > Date.now()){ render(); return; }
+  var el = document.getElementById('licenseInputEl');
+  var code = el ? el.value.trim() : '';
+  if(checkLicense(code)){
+    setLicenseVerified(code);
+    DB.licenseLogs.push({code:code, at:new Date().toISOString()});
+    if(DB.licenseLogs.length > 500) DB.licenseLogs = DB.licenseLogs.slice(-500);
+    saveDB('licenseLogs');
+    S.wiz.licenseError = '';
+    S.wiz.licenseFailCount = 0;
+    S.wiz.step = 'penalties';
+  } else {
+    S.wiz.licenseFailCount = (S.wiz.licenseFailCount||0) + 1;
+    if(S.wiz.licenseFailCount >= 5){
+      S.wiz.licenseLockUntil = Date.now() + 20000;
+      S.wiz.licenseError = 'تعداد تلاش‌های ناموفق زیاد بود. لطفاً ۲۰ ثانیه صبر کنید یا با پشتیبانی تماس بگیرید.';
+      S.wiz.licenseFailCount = 0;
+      scheduleLicenseUnlockTick();
+    } else {
+      S.wiz.licenseError = 'کد لایسنس نامعتبر یا منقضی‌شده است. لطفاً با پشتیبانی تماس بگیرید.';
+    }
+  }
+  render();
+}
+function scheduleLicenseUnlockTick(){
+  setTimeout(function(){
+    if(S.wiz.step==='license'){ render(); }
+    if(S.wiz.licenseLockUntil > Date.now()) scheduleLicenseUnlockTick();
+  }, 1000);
+}
+function renderLicenseGateStep(){
+  var now = Date.now();
+  var locked = S.wiz.licenseLockUntil > now;
+  var secLeft = locked ? Math.ceil((S.wiz.licenseLockUntil-now)/1000) : 0;
+  return (
+    '<div class="card narrow">' +
+      '<div class="lock-wrap"><div class="lock-badge">'+ic('key',22,'#E7C878')+'</div>' +
+        '<h2>ورود کد لایسنس</h2>' +
+        '<p>برای مشاهده و محاسبه جرایم مالیاتی، لطفاً کد لایسنسی که از مشاور/پشتیبانی دریافت کرده‌اید را وارد کنید.</p></div>' +
+      '<label class="field"><span class="field-label">کد لایسنس</span>' +
+        '<input type="text" id="licenseInputEl" value="'+esc(S.wiz.licenseInput)+'" oninput="S.wiz.licenseInput=this.value" '+(locked?'disabled':'')+' placeholder="کد لایسنس را وارد کنید" onkeydown="if(event.key===\'Enter\')submitLicense();" />' +
+      '</label>' +
+      (S.wiz.licenseError ? '<div class="field-error">'+esc(S.wiz.licenseError)+'</div>' : '') +
+      '<div class="btn-row start">' +
+        '<button class="btn btn-ghost" onclick="goStep(\'obligations\')">بازگشت</button>' +
+        '<button class="btn btn-gold" '+(locked?'disabled':'')+' onclick="submitLicense()">'+ic('key',15)+'<span>'+(locked ? ('لطفاً صبر کنید ('+secLeft+' ثانیه)') : 'تأیید و ادامه')+'</span></button>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+/* ---------------------------------------------------------- */
+/*  نوارِ گام‌های ویزارد                                        */
+/* ---------------------------------------------------------- */
+var WIZ_STEPS = ["intro","questions","obligations","penalties","calc","layeha","consult"];
+var WIZ_LABELS = ["سوالات","تکالیف شما","انتخاب جرایم","محاسبه","نمونه لایحه","مشاوره"];
+function renderProgressTabs(){
+  if(S.wiz.step === 'intro' || S.wiz.step === 'quota') return '';
+  var effectiveStep = S.wiz.step === 'license' ? 'penalties' : S.wiz.step;
+  var stepIndex = WIZ_STEPS.indexOf(effectiveStep);
+  var html = '<div class="progress-tabs">';
+  WIZ_LABELS.forEach(function(label, i){
+    var idx = i+1;
+    var active = stepIndex === idx;
+    var done = stepIndex > idx;
+    html += '<div class="progress-tab '+(active?'active':(done?'done':''))+'">'+(done?ic('check',12):'')+'<span>'+label+'</span></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+/* ---------------------------------------------------------- */
+/*  ویزارد کاربر                                                */
+/* ---------------------------------------------------------- */
+function renderUserWizard(){
+  /* اگر سهمیه رایگان تمام شده و لایسنس معتبر ندارد، حتی صفحه انتخاب
+     نوع شخصیت هم نمایش داده نمی‌شود؛ باید ابتدا لایسنس وارد کند. */
+  if(S.wiz.step === 'intro' && !hasQuotaOrLicense()){
+    return renderProgressTabsSafeEmpty() + renderQuotaGate();
+  }
+  var step = S.wiz.step;
+  var body = '';
+  if(step === 'intro') body = renderStepIntro();
+  else if(step === 'quota') body = renderQuotaGate();
+  else if(step === 'questions') body = renderStepQuestions();
+  else if(step === 'obligations') body = renderStepObligations();
+  else if(step === 'license') body = renderLicenseGateStep();
+  else if(step === 'penalties') body = renderStepPenalties();
+  else if(step === 'calc') body = renderStepCalc();
+  else if(step === 'layeha') body = renderStepLayeha();
+  else if(step === 'consult') body = renderStepConsult();
+  return renderProgressTabs() + body;
+}
+function renderProgressTabsSafeEmpty(){ return ''; }
+
+function renderStepIntro(){
+  var u = currentUserRecord();
+  var remain = remainingFreeQueries();
+  var quotaLine = isLicenseVerified()
+    ? '<span class="quota-pill">'+ic('shield',12)+'<span>اشتراک فعال — استعلام نامحدود</span></span>'
+    : '<span class="quota-pill">'+ic('info',12)+'<span>'+toFa(remain)+' استعلام رایگان باقی‌مانده</span></span>';
+  return (
+    '<div class="card">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">' +
+        quotaLine +
+        (u ? '<button class="btn btn-ghost btn-sm" onclick="logoutUser()">'+ic('logout',13)+'<span>خروج ('+esc(u.name)+')</span></button>' : '') +
+      '</div>' +
+      '<div class="section-eyebrow">گام اول</div>' +
+      '<div class="section-title"><h2>نوع مؤدی خود را انتخاب کنید</h2></div>' +
+      '<p class="muted" style="margin-bottom:20px;">بر اساس نوع مخاطب، سوالات و تکالیف مالیاتی متفاوتی نمایش داده می‌شود.</p>' +
+      '<div class="grid2">' +
+        '<button class="choice-card" onclick="startWizard(\'حقیقی\')">' +
+          ic('users',26,'#B8862E') +
+          '<div class="title">شخص حقیقی</div>' +
+          '<div class="desc">صاحبان مشاغل، فریلنسرها، مالکین انفرادی</div>' +
+        '</button>' +
+        '<button class="choice-card" onclick="startWizard(\'حقوقی\')">' +
+          ic('shield',26,'#B8862E') +
+          '<div class="title">شخص حقوقی</div>' +
+          '<div class="desc">شرکت‌ها، مؤسسات و اشخاص حقوقی ثبت‌شده</div>' +
+        '</button>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+function renderStepQuestions(){
+  var q = currentQuestion();
+  if(!q) return renderStepObligations();
+  var qs = orderedQuestionsFor(S.wiz.personType);
+  var idx = qs.findIndex(function(x){return x.id===q.id;});
+  var optsHtml = q.options.map(function(opt){
+    return '<button class="option-btn" onclick="handleAnswer(\''+opt.id+'\')">'+esc(opt.label)+'</button>';
+  }).join('');
+  return (
+    '<div class="card">' +
+      '<div class="section-eyebrow">سوال '+toFa(idx+1)+' از '+toFa(qs.length)+'</div>' +
+      '<h3 style="font-size:16px;font-weight:800;margin:6px 0 18px;">'+esc(q.text)+'</h3>' +
+      optsHtml +
+    '</div>'
+  );
+}
+
+function renderStepObligations(){
+  var obls = derivedObligations();
+  var body;
+  if(obls.length === 0){
+    body = '<p class="muted">با توجه به پاسخ‌های شما، در حال حاضر تکلیف فوری خاصی شناسایی نشد. با این حال توصیه می‌شود ثبت‌نام و اظهارنامه‌های دوره‌ای خود را به‌روز نگه دارید.</p>';
+  } else {
+    body = '<div class="stack">' + obls.map(function(o){
+      var penTitles = (o.penaltyIds||[]).map(function(pid){
+        var p = DB.penalties.filter(function(x){return x.id===pid;})[0];
+        return p ? (p.title+' ('+(p.legalArticle||'')+')') : null;
+      }).filter(Boolean).join('، ');
+      return (
+        '<div class="block">' +
+          '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">' +
+            '<div class="row-title" style="font-weight:800;font-size:13.5px;">'+esc(o.title)+'</div>' +
+            (o.fixed ? '<span class="badge badge-ink">تکلیف ثابت</span>' : '') +
+          '</div>' +
+          '<div class="small-muted" style="margin-top:4px;line-height:1.8;">'+esc(o.description)+'</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;font-weight:700;color:var(--gold);">'+ic('calendar',13,'var(--gold)')+'<span>موعد: '+esc(o.deadline)+'</span></div>' +
+          (penTitles ? '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--red);">'+ic('alert',13,'var(--red)')+'<span>در صورت عدم انجام: '+esc(penTitles)+'</span></div>' : '') +
+        '</div>'
+      );
+    }).join('') + '</div>';
+  }
+  return (
+    '<div class="card">' +
+      '<div class="section-eyebrow">نتیجه گام دوم</div>' +
+      '<div class="section-title"><h2>تکالیف مالیاتی شما و مواعد آن‌ها</h2></div>' +
+      body +
+      '<div class="btn-row">' +
+        '<button class="btn btn-ghost" onclick="goStep(\'intro\')">'+ic('right',15)+'<span>بازگشت</span></button>' +
+        '<button class="btn btn-primary" onclick="goStep(\'penalties\')"><span>مرحله بعد: بررسی جرایم</span>'+ic('left',15)+'</button>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+function renderStepPenalties(){
+  var related = relatedPenaltyIds();
+  var rows = DB.penalties.map(function(p){
+    var isRelated = !!related[p.id];
+    var s = S.wiz.selected[p.id] || {};
+    var extra = '';
+    if(s.checked && (p.calcType === 'percent' || p.calcType === 'permonth_percent')){
+      extra += '<div style="margin-right:24px;margin-top:8px;max-width:260px;">' +
+        '<label class="field"><span class="field-label">مبلغ مالیات/مبلغ پایه (تومان)</span>' +
+        '<input type="number" value="'+esc(s.base||'')+'" oninput="setPenaltyInput(\''+p.id+'\',\'base\',this.value)" placeholder="مثلاً 20000000" /></label></div>';
+    }
+    if(s.checked && (p.calcType === 'permonth' || p.calcType === 'permonth_percent')){
+      extra += '<div style="margin-right:24px;margin-top:8px;max-width:260px;">' +
+        '<label class="field"><span class="field-label">تعداد ماه‌های تأخیر</span>' +
+        '<input type="number" value="'+esc(s.months||'')+'" oninput="setPenaltyInput(\''+p.id+'\',\'months\',this.value)" placeholder="مثلاً 3" /></label></div>';
+    }
+    return (
+      '<div class="block '+(s.checked?'outline-gold':'outline-transparent')+'">' +
+        '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">' +
+          '<label class="checkbox-row"><input type="checkbox" '+(s.checked?'checked':'')+' onchange="togglePenalty(\''+p.id+'\', this.checked)" /><span style="font-weight:800;color:var(--ink);">'+esc(p.title)+'</span></label>' +
+          (isRelated ? '<span class="badge badge-gold">مرتبط با تکالیف شما</span>' : '') +
+        '</div>' +
+        '<div class="small-muted" style="margin-right:24px;line-height:1.8;">'+esc(p.description)+' — نوع محاسبه: '+calcTypeLabel(p.calcType)+' — ماده قانونی: '+esc(p.legalArticle||'-')+'</div>' +
+        extra +
+      '</div>'
+    );
+  }).join('');
+  return (
+    '<div class="card">' +
+      '<div class="section-eyebrow">گام سوم</div>' +
+      '<div class="section-title"><h2>آیا در حال حاضر مشمول جریمه شده‌اید؟</h2></div>' +
+      '<p class="muted" style="margin-bottom:14px;">از فهرست جرایم تعریف‌شده در سامانه، مواردی را که برای شما اتفاق افتاده انتخاب کنید.</p>' +
+      '<div class="stack">'+rows+'</div>' +
+      '<div class="btn-row">' +
+        '<button class="btn btn-ghost" onclick="goStep(\'obligations\')">'+ic('right',15)+'<span>بازگشت</span></button>' +
+        '<button class="btn btn-primary" onclick="onEnterCalc()"><span>مرحله بعد: محاسبه جرایم</span>'+ic('left',15)+'</button>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+function renderStepCalc(){
+  var sel = selectedPenalties();
+  var body;
+  if(sel.length === 0){
+    body = '<p class="muted">هیچ جریمه‌ای انتخاب نشده است.</p>';
+  } else {
+    var rows = sel.map(function(p){
+      var amt = calcAmount(p, S.wiz.selected[p.id]);
+      var discounted = p.amnestyEligible ? amt*(1-p.amnestyPercent/100) : amt;
+      return (
+        '<div class="block">' +
+          '<div style="font-weight:800;font-size:13.5px;margin-bottom:4px;">'+esc(p.title)+' <span class="small-muted">('+esc(p.legalArticle||'')+')</span></div>' +
+          '<div style="font-weight:800;font-size:13.5px;color:var(--red);">مبلغ جریمه: '+toman(amt)+'</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">' +
+            (p.amnestyEligible ? '<span class="badge badge-green">قابل بخشودگی تا '+toFa(p.amnestyPercent)+'٪ (پس از تأیید اداره) → مبلغ تخمینی: '+toman(discounted)+'</span>' : '<span class="badge badge-ink">این جریمه معمولاً قابل بخشودگی نیست</span>') +
+            (p.installmentEligible ? '<span class="badge badge-gold">قابل تقسیط تا '+toFa(p.maxInstallments)+' قسط — هر قسط تقریباً '+toman(amt/p.maxInstallments)+'</span>' : '<span class="badge badge-ink">قابل تقسیط نیست</span>') +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+    body = '<div class="stack">' + rows +
+      '<div class="summary-box">' +
+        '<div class="summary-row"><span>جمع کل جرایم (قبل از بخشودگی)</span><span style="font-weight:800;">'+toman(totalRawAmount())+'</span></div>' +
+        '<div class="summary-row"><span>جمع تخمینی با احتساب بخشودگی</span><span style="font-weight:800;color:var(--gold-light);">'+toman(totalAmnestyAmount())+'</span></div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:flex-start;gap:6px;font-size:12px;color:var(--ink-soft);margin-top:4px;">'+ic('info',14)+'<span>این ارقام صرفاً برآورد اولیه هستند. تأیید نهایی بخشودگی، درصد آن و امکان تقسیط بر عهده اداره امور مالیاتی و کارشناس مالیاتی است.</span></div>' +
+      '</div>';
+  }
+  return (
+    '<div class="card">' +
+      '<div class="section-eyebrow">گام چهارم</div>' +
+      '<div class="section-title"><h2>جمع‌بندی جرایم، بخشودگی و امکان اقساط</h2></div>' +
+      body +
+      '<div class="btn-row">' +
+        '<button class="btn btn-ghost" onclick="goStep(\'penalties\')">'+ic('right',15)+'<span>بازگشت</span></button>' +
+        '<button class="btn btn-primary" onclick="onEnterLayeha()"><span>مرحله بعد: تهیه نمونه لایحه</span>'+ic('left',15)+'</button>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+function renderStepLayeha(){
+  var options = DB.templates.map(function(t){
+    return '<option value="'+t.id+'" '+(t.id===S.wiz.templateId?'selected':'')+'>'+esc(t.title)+'</option>';
+  }).join('');
+  return (
+    '<div class="card">' +
+      '<div class="section-eyebrow">گام پنجم</div>' +
+      '<div class="section-title"><h2>نمونه لایحه اعتراض/تقسیط</h2></div>' +
+      '<label class="field"><span class="field-label">انتخاب قالب لایحه</span>' +
+        '<select onchange="onTemplateChange(this.value)">'+options+'</select></label>' +
+      '<label class="field"><span class="field-label">متن لایحه (قابل ویرایش قبل از دریافت)</span>' +
+        '<textarea id="layehaTextArea" rows="14" oninput="onLayehaTextChange(this.value)">'+esc(S.wiz.layehaText)+'</textarea></label>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
+        '<button class="btn btn-ghost" onclick="copyLayehaText()">'+ic('copy',15)+'<span>کپی متن</span></button>' +
+        '<button class="btn btn-gold" onclick="downloadLayehaText()">'+ic('download',15)+'<span>دانلود نسخه نمایشی (txt)</span></button>' +
+        (S.wiz.copyMsg ? '<span class="small-muted" style="color:var(--green);">'+esc(S.wiz.copyMsg)+'</span>' : '') +
+      '</div>' +
+      '<div class="alert-box error" style="margin-top:14px;line-height:1.8;">نسخه رایگان صرفاً یک پیش‌نویس عمومی است. نسخه حرفه‌ای با استناد دقیق به مواد قانونی و متناسب با پرونده شما، توسط کارشناس مالیاتی و از طریق بسته «پیگیری پرونده اختصاصی» در مرحله بعد قابل دریافت است.</div>' +
+      '<div class="btn-row">' +
+        '<button class="btn btn-ghost" onclick="goStep(\'calc\')">'+ic('right',15)+'<span>بازگشت</span></button>' +
+        '<button class="btn btn-primary" onclick="goStep(\'consult\')"><span>مرحله بعد: مشاوره تلفنی</span>'+ic('left',15)+'</button>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+function renderStepConsult(){
+  var meta = DB.meta;
+  var plansHtml = DB.plans.map(function(pl){
+    var selected = S.wiz.lead.planId === pl.id;
+    return (
+      '<button class="lead-plan '+(selected?'selected':'')+'" onclick="selectPlan(\''+pl.id+'\')">' +
+        '<div class="p-title">'+esc(pl.title)+'</div>' +
+        '<div class="p-dur">مدت: '+esc(pl.duration)+'</div>' +
+        '<div class="p-price" style="color:'+(pl.price===0?'var(--green)':'var(--gold)')+';">'+(pl.price===0?'رایگان':toman(pl.price))+'</div>' +
+        '<div class="p-desc">'+esc(pl.desc)+'</div>' +
+      '</button>'
+    );
+  }).join('');
+
+  var phoneValid = IRAN_MOBILE_RE.test((S.wiz.lead.phone||'').trim());
+
+  var formOrSuccess;
+  if(S.wiz.leadSent){
+    var statusMsg = '';
+    if(S.wiz.sendStatus === 'sending') statusMsg = 'در حال ارسال اطلاعیه ایمیلی...';
+    else if(S.wiz.sendStatus === 'sent') statusMsg = 'اطلاعیه ایمیلی برای کارشناسان ارسال شد.';
+    else if(S.wiz.sendStatus === 'error') statusMsg = 'درخواست شما ذخیره شد، اما ارسال اطلاعیه ایمیلی ناموفق بود؛ لطفاً از پنل مدیریت هم پیگیری کنید.';
+    formOrSuccess = (
+      '<div class="success-box">' +
+        '<div class="title-row">'+ic('check',18)+'<span>درخواست شما ثبت شد. کارشناسان ما به‌زودی با شما تماس می‌گیرند.</span></div>' +
+        '<div class="small-muted" style="margin-top:8px;">'+statusMsg+'</div>' +
+      '</div>'
+    );
+  } else {
+    formOrSuccess = (
+      '<div class="grid2">' +
+        '<label class="field"><span class="field-label">نام و نام خانوادگی</span>' +
+          '<input type="text" id="leadNameInput" value="'+esc(S.wiz.lead.name)+'" oninput="S.wiz.lead.name=this.value" placeholder="مثلاً علی احمدی" /></label>' +
+        '<label class="field"><span class="field-label">شماره تماس</span>' +
+          '<input type="tel" id="leadPhoneInput" value="'+esc(S.wiz.lead.phone)+'" oninput="S.wiz.lead.phone=this.value" placeholder="09xxxxxxxxx" />' +
+          (S.wiz.lead.phone && !phoneValid ? '<span class="field-hint" style="color:var(--red);">شماره موبایل معتبر نیست (مثال: 09123456789)</span>' : '') +
+        '</label>' +
+        '<div class="col-span-2"><label class="field"><span class="field-label">توضیح کوتاه (اختیاری)</span>' +
+          '<textarea id="leadNoteInput" rows="3" oninput="S.wiz.lead.note=this.value">'+esc(S.wiz.lead.note)+'</textarea></label></div>' +
+        '<div class="col-span-2">' +
+          '<button class="btn btn-gold" '+((!S.wiz.lead.name || !phoneValid || S.wiz.sendStatus==='sending')?'disabled':'')+' onclick="submitLead()">'+ic('phone',15)+'<span>'+(S.wiz.sendStatus==='sending' ? 'در حال ارسال...' : 'درخواست تماس مشاور')+'</span></button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  return (
+    '<div class="card">' +
+      '<div class="section-eyebrow">گام پایانی</div>' +
+      '<div class="section-title"><h2>ارجاع به مشاوره تلفنی</h2></div>' +
+      '<div class="block" style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:20px;">' +
+        '<div style="display:flex;align-items:center;gap:10px;">'+ic('phone',22,'var(--gold)')+
+          '<div><div class="small-muted">برای دریافت مشاوره فوری با ما تماس بگیرید</div><div style="font-weight:800;font-size:16px;">'+esc(meta.phone)+'</div></div></div>' +
+        (meta.whatsapp ? '<a href="https://wa.me/'+meta.whatsapp.replace(/\D/g,'')+'" target="_blank" rel="noreferrer" class="btn" style="background:var(--green-soft);color:var(--green);">'+ic('whatsapp',15)+'<span>پیام واتس‌اپ</span></a>' : '') +
+      '</div>' +
+      '<div class="grid3" style="margin-bottom:20px;">'+plansHtml+'</div>' +
+      formOrSuccess +
+      '<div class="btn-row">' +
+        '<button class="btn btn-ghost" onclick="goStep(\'layeha\')">'+ic('right',15)+'<span>بازگشت</span></button>' +
+        '<button class="btn btn-ghost" onclick="restartWizard()"><span>شروع دوباره برای پرونده دیگر</span>'+ic('left',15)+'</button>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+/* ============================================================
+   پنل مدیریت — CRUD کامل روی همه بخش‌ها
+   ============================================================ */
+var ADMIN_TABS = [
+  {id:'dashboard', label:'داشبورد', icon:'trend'},
+  {id:'users', label:'کاربران ثبت‌شده', icon:'users'},
+  {id:'questions', label:'سوالات', icon:'inbox'},
+  {id:'obligations', label:'تکالیف', icon:'doc'},
+  {id:'penalties', label:'جرایم', icon:'scale'},
+  {id:'templates', label:'نمونه لوایح', icon:'doc'},
+  {id:'plans', label:'بسته‌های مشاوره', icon:'phone'},
+  {id:'leads', label:'درخواست‌های تماس', icon:'inbox'},
+  {id:'licenses', label:'لایسنس‌ها', icon:'key'},
+  {id:'settings', label:'تنظیمات', icon:'settings'},
+  {id:'guide', label:'راهنما', icon:'book'}
+];
+
+function setAdminTab(id){ S.adminTab = id; S.formType=null; S.formMode=null; S.formId=null; render(); window.scrollTo(0,0); }
+
+function renderAdminPanel(){
+  var tabsHtml = '<div class="admin-tabs">' + ADMIN_TABS.map(function(t){
+    return '<button class="admin-tab '+(S.adminTab===t.id?'active':'')+'" onclick="setAdminTab(\''+t.id+'\')">'+ic(t.icon,14)+'<span>'+t.label+'</span></button>';
+  }).join('') + '</div>';
+
+  var body = '';
+  if(S.adminTab==='dashboard') body = renderDashboardAdmin();
+  else if(S.adminTab==='users') body = renderUsersAdmin();
+  else if(S.adminTab==='questions') body = renderQuestionsAdmin();
+  else if(S.adminTab==='obligations') body = renderObligationsAdmin();
+  else if(S.adminTab==='penalties') body = renderPenaltiesAdmin();
+  else if(S.adminTab==='templates') body = renderTemplatesAdmin();
+  else if(S.adminTab==='plans') body = renderPlansAdmin();
+  else if(S.adminTab==='leads') body = renderLeadsAdmin();
+  else if(S.adminTab==='licenses') body = renderLicensesAdmin();
+  else if(S.adminTab==='settings') body = renderSettingsAdmin();
+  else if(S.adminTab==='guide') body = renderGuideAdmin();
+
+  return tabsHtml + body;
+}
+
+function resetUserQuota(key){
+  if(!DB.users[key]) return;
+  DB.users[key].queryCount = 0;
+  saveDB('users');
+  render();
+}
+function renderUsersAdmin(){
+  var keys = Object.keys(DB.users || {});
+  var limit = (DB.meta.freeQueryLimit != null) ? DB.meta.freeQueryLimit : 3;
+  var rows = keys.map(function(k){
+    var u = DB.users[k];
+    var used = u.queryCount || 0;
+    return adminRow(
+      u.name + ' — ' + u.phone,
+      'استعلام‌های استفاده‌شده: ' + toFa(used) + ' از ' + toFa(limit) + ' — ثبت‌نام: ' + new Date(u.createdAt).toLocaleDateString('fa-IR'),
+      "resetUserQuota('"+k+"')",
+      null
+    );
+  }).join('');
+  return (
+    '<div class="card">' +
+      '<div class="section-title tight"><h2>کاربران ثبت‌شده با موبایل</h2></div>' +
+      '<p class="muted" style="margin:8px 0 16px;">هر بار روی «بازنشانی سهمیه» بزنید، شمارش استعلام رایگان همان کاربر از نو شروع می‌شود. تعداد استعلام رایگان هر کاربر جدید در تب «تنظیمات» قابل تغییر است.</p>' +
+      '<div class="stack">' + (rows || '<p class="muted">هنوز کاربری ثبت‌نام نکرده است.</p>') + '</div>' +
+    '</div>'
+  );
+}
+
+function renderDashboardAdmin(){
+  var total = DB.leads.length;
+  var newCount = DB.leads.filter(function(l){ return (l.status||'جدید')==='جدید'; }).length;
+  var doneCount = DB.leads.filter(function(l){ return l.status==='نهایی‌شده'; }).length;
+  var potentialRevenue = DB.leads.reduce(function(sum,l){
+    var plan = DB.plans.filter(function(p){return p.title===l.planTitle;})[0];
+    return sum + (plan ? plan.price : 0);
+  }, 0);
+  var stats = [
+    {label:'کل درخواست‌ها', value:toFa(total), icon:'users'},
+    {label:'درخواست‌های جدید', value:toFa(newCount), icon:'inbox'},
+    {label:'نهایی‌شده', value:toFa(doneCount), icon:'check'},
+    {label:'کاربران ثبت‌نام‌شده', value:toFa(Object.keys(DB.users||{}).length), icon:'users'},
+    {label:'درآمد بالقوه بسته‌ها', value:toman(potentialRevenue), icon:'trend'}
+  ];
+  var statsHtml = stats.map(function(s){
+    return '<div class="stat-box">'+ic(s.icon,17,'var(--gold)')+'<div class="stat-value">'+s.value+'</div><div class="stat-label">'+s.label+'</div></div>';
+  }).join('');
+  var licenseCount = DB.licenses.length;
+  var licenseLogCount = DB.licenseLogs.length;
+  return (
+    '<div class="card">' +
+      '<div class="section-title-row"><div class="section-title tight"><h2>نمای کلی کسب‌وکار</h2></div>'+renderSyncPill()+'</div>' +
+      '<div class="grid4">'+statsHtml+'</div>' +
+      '<div class="small-muted" style="margin-top:14px;">«درآمد بالقوه» فقط جمع قیمت بسته‌های انتخاب‌شده توسط مخاطبان است و به معنای درآمد قطعی وصول‌شده نیست.</div>' +
+      '<div class="block" style="margin-top:16px;">وضعیت لایسنس: '+toFa(licenseCount)+' کد اختصاصی، '+toFa(licenseLogCount)+' بار استفاده تاکنون'+(DB.meta.defaultLicenseEnabled!==false ? '، لایسنس پیش‌فرض «'+esc(DB.meta.defaultLicenseCode||'123')+'» فعال است.' : '، لایسنس پیش‌فرض غیرفعال است.')+'</div>' +
+      (fbSyncStatus!=='online' ? '<div class="alert-box error" style="margin-top:12px;">'+ic('alert',14)+'<span>وضعیت همگام‌سازی با Firebase در حال حاضر «'+esc(fbSyncStatus==='connecting'?'در حال اتصال':(fbSyncStatus==='offline'?'آفلاین':'خطا'))+'» است؛ یعنی ممکن است تغییرات شما بین دستگاه‌های مختلف هماهنگ نشود. به تب «راهنما» مراجعه کنید.</span></div>' : '') +
+    '</div>'
+  );
+}
+
+/* ---------- ابزار عمومی فرم افزودن/ویرایش ---------- */
+var EMPTY_MAKERS = {
+  question: function(){ return {id:genId('q'), order:(DB.questions.length+1), text:'', appliesTo:['حقیقی','حقوقی'], options:[{id:genId('opt'),label:'بله',obligationIds:[],end:false},{id:genId('opt'),label:'خیر',obligationIds:[],end:false}]}; },
+  obligation: function(){ return {id:genId('o'), title:'', appliesTo:['حقیقی','حقوقی'], fixed:false, description:'', deadline:'', penaltyIds:[]}; },
+  penalty: function(){ return {id:genId('p'), title:'', description:'', calcType:'fixed', value:0, amnestyEligible:false, amnestyPercent:0, installmentEligible:false, maxInstallments:1, legalArticle:''}; },
+  template: function(){ return {id:genId('t'), title:'', body:''}; },
+  plan: function(){ return {id:genId('pl'), title:'', price:0, duration:'', desc:''}; }
+};
+var COLL_KEY = {question:'questions', obligation:'obligations', penalty:'penalties', template:'templates', plan:'plans'};
+
+function openAddForm(type){ S.formType=type; S.formMode='add'; S.formId=null; S.form=EMPTY_MAKERS[type](); render(); window.scrollTo(0,0); }
+function openEditForm(type, id){
+  var coll = DB[COLL_KEY[type]];
+  var item = coll.filter(function(x){return x.id===id;})[0];
+  if(!item) return;
+  S.formType=type; S.formMode='edit'; S.formId=id; S.form=clone(item); render(); window.scrollTo(0,0);
+}
+function cancelForm(){ S.formType=null; S.formMode=null; S.formId=null; S.form={}; render(); }
+function deleteItem(type, id){
+  if(!confirm('آیا از حذف این مورد مطمئن هستید؟')) return;
+  var key = COLL_KEY[type];
+  DB[key] = DB[key].filter(function(x){return x.id!==id;});
+  saveDB(key);
+  render();
+}
+function saveForm(){
+  var key = COLL_KEY[S.formType];
+  if(S.formType==='question' && !S.form.text.trim()){ alert('متن سوال را وارد کنید.'); return; }
+  if((S.formType==='obligation'||S.formType==='penalty'||S.formType==='template'||S.formType==='plan') && !S.form.title.trim()){ alert('عنوان را وارد کنید.'); return; }
+  if(S.formType==='plan'){ S.form.price = Number(S.form.price)||0; }
+  if(S.formType==='question'){ S.form.order = Number(S.form.order)||1; }
+  if(S.formType==='penalty'){ S.form.value = Number(S.form.value)||0; S.form.amnestyPercent = Number(S.form.amnestyPercent)||0; S.form.maxInstallments = Number(S.form.maxInstallments)||1; }
+  if(S.formMode==='add'){ DB[key].push(S.form); }
+  else { DB[key] = DB[key].map(function(x){ return x.id===S.formId ? S.form : x; }); }
+  saveDB(key);
+  cancelForm();
+}
+function toggleAppliesTo(kind){
+  var arr = S.form.appliesTo || [];
+  var idx = arr.indexOf(kind);
+  if(idx===-1) arr = arr.concat([kind]); else arr = arr.filter(function(x){return x!==kind;});
+  S.form.appliesTo = arr; render();
+}
+function toggleObligationFixed(checked){ S.form.fixed = checked; render(); }
+function toggleMultiId(field, id){
+  var arr = S.form[field] || [];
+  var idx = arr.indexOf(id);
+  if(idx===-1) arr = arr.concat([id]); else arr = arr.filter(function(x){return x!==id;});
+  S.form[field] = arr; render();
+}
+function renderMultiCheck(allItems, selectedIds, field){
+  return '<div class="multi-check">' + allItems.map(function(item){
+    var checked = (selectedIds||[]).indexOf(item.id) !== -1;
+    return '<label class="checkbox-row"><input type="checkbox" '+(checked?'checked':'')+' onchange="toggleMultiId(\''+field+'\',\''+item.id+'\')" /><span>'+esc(item.title||item.text)+'</span></label>';
+  }).join('') + '</div>';
+}
+
+function adminRow(title, subtitle, editFn, deleteFn, extraHtml){
+  return (
+    '<div class="admin-row">' +
+      '<div class="row-main">' +
+        '<div class="row-title">'+esc(title)+'</div>' +
+        (subtitle ? '<div class="row-sub">'+subtitle+'</div>' : '') +
+        (extraHtml || '') +
+      '</div>' +
+      '<div class="row-actions">' +
+        (editFn ? '<button class="icon-btn" onclick="'+editFn+'">'+ic('edit',14)+'</button>' : '') +
+        (deleteFn ? '<button class="icon-btn danger" onclick="'+deleteFn+'">'+ic('trash',14,'var(--red)')+'</button>' : '') +
+      '</div>' +
+    '</div>'
+  );
+}
+
+/* ---------------- سوالات ---------------- */
+function renderQuestionsAdmin(){
+  var formHtml = '';
+  if(S.formType==='question'){
+    var f = S.form;
+    var optsHtml = f.options.map(function(opt, idx){
+      return (
+        '<div class="opt-box">' +
+          '<div class="opt-row">' +
+            '<input type="text" value="'+esc(opt.label)+'" oninput="S.form.options['+idx+'].label=this.value" placeholder="متن گزینه" />' +
+            '<button class="icon-btn danger" onclick="removeQOption('+idx+')">'+ic('x',14,'var(--red)')+'</button>' +
+          '</div>' +
+          '<label class="checkbox-row"><input type="checkbox" '+(opt.end?'checked':'')+' onchange="toggleQOptionEnd('+idx+', this.checked)" /><span>پس از این پاسخ، سوالات باقیمانده پرسیده نشود (پایان زودهنگام)</span></label>' +
+          '<div class="small-muted" style="margin-bottom:4px;">تکالیفی که با انتخاب این گزینه فعال می‌شود:</div>' +
+          renderMultiCheckOpt(idx, opt.obligationIds) +
+        '</div>'
+      );
+    }).join('');
+    formHtml = (
+      '<div class="form-box">' +
+        '<label class="field"><span class="field-label">متن سوال</span><input type="text" value="'+esc(f.text)+'" oninput="S.form.text=this.value" /></label>' +
+        '<label class="field"><span class="field-label">ترتیب نمایش (عدد کوچک‌تر زودتر پرسیده می‌شود)</span><input type="number" value="'+esc(f.order||1)+'" oninput="S.form.order=this.value" /></label>' +
+        '<label class="field"><span class="field-label">نمایش برای</span>' +
+          '<div style="display:flex;gap:16px;">' +
+            '<label class="checkbox-row"><input type="checkbox" '+((f.appliesTo||[]).indexOf('حقیقی')!==-1?'checked':'')+' onchange="toggleAppliesTo(\'حقیقی\')" /><span>حقیقی</span></label>' +
+            '<label class="checkbox-row"><input type="checkbox" '+((f.appliesTo||[]).indexOf('حقوقی')!==-1?'checked':'')+' onchange="toggleAppliesTo(\'حقوقی\')" /><span>حقوقی</span></label>' +
+          '</div>' +
+        '</label>' +
+        '<div style="font-weight:700;font-size:13.5px;margin-bottom:8px;">گزینه‌های پاسخ</div>' +
+        optsHtml +
+        '<button class="btn btn-ghost btn-sm" onclick="addQOption()">'+ic('plus',13)+'<span>افزودن گزینه</span></button>' +
+        '<div class="btn-row start" style="margin-top:14px;">' +
+          '<button class="btn btn-primary" onclick="saveForm()">ذخیره</button>' +
+          '<button class="btn btn-ghost" onclick="cancelForm()">انصراف</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+  var list = DB.questions.slice().sort(function(a,b){return (a.order||0)-(b.order||0);}).map(function(q){
+    return adminRow('('+toFa(q.order||0)+') '+q.text, esc((q.appliesTo||[]).join('، ')), "openEditForm('question','"+q.id+"')", "deleteItem('question','"+q.id+"')");
+  }).join('');
+  return (
+    '<div class="card">' +
+      '<div class="section-title-row"><div class="section-title tight"><h2>سوالات پرسش‌وپاسخ</h2></div>' +
+      (S.formType==='question' ? '' : '<button class="btn btn-primary btn-sm" onclick="openAddForm(\'question\')">'+ic('plus',13)+'<span>سوال جدید</span></button>') +
+      '</div>' +
+      formHtml +
+      '<div class="stack">'+(list||'<p class="muted">هنوز سوالی ثبت نشده است.</p>')+'</div>' +
+    '</div>'
+  );
+}
+function renderMultiCheckOpt(idx, selectedIds){
+  return '<div class="multi-check">' + DB.obligations.map(function(item){
+    var checked = (selectedIds||[]).indexOf(item.id) !== -1;
+    return '<label class="checkbox-row"><input type="checkbox" '+(checked?'checked':'')+' onchange="toggleQOptionObligation('+idx+',\''+item.id+'\')" /><span>'+esc(item.title)+'</span></label>';
+  }).join('') + '</div>';
+}
+function toggleQOptionObligation(idx, obId){
+  var arr = S.form.options[idx].obligationIds || [];
+  var i = arr.indexOf(obId);
+  if(i===-1) arr = arr.concat([obId]); else arr = arr.filter(function(x){return x!==obId;});
+  S.form.options[idx].obligationIds = arr; render();
+}
+function toggleQOptionEnd(idx, checked){ S.form.options[idx].end = checked; render(); }
+function addQOption(){ S.form.options.push({id:genId('opt'), label:'', obligationIds:[], end:false}); render(); }
+function removeQOption(idx){ S.form.options = S.form.options.filter(function(_,i){return i!==idx;}); render(); }
+
+/* ---------------- تکالیف ---------------- */
+function renderObligationsAdmin(){
+  var formHtml = '';
+  if(S.formType==='obligation'){
+    var f = S.form;
+    formHtml = (
+      '<div class="form-box">' +
+        '<label class="field"><span class="field-label">عنوان تکلیف</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
+        '<label class="field"><span class="field-label">توضیح</span><textarea rows="3" oninput="S.form.description=this.value">'+esc(f.description)+'</textarea></label>' +
+        '<label class="field"><span class="field-label">موعد قانونی</span><input type="text" value="'+esc(f.deadline)+'" oninput="S.form.deadline=this.value" /></label>' +
+        '<label class="checkbox-row"><input type="checkbox" '+(f.fixed?'checked':'')+' onchange="toggleObligationFixed(this.checked)" /><span style="font-weight:700;">تکلیف ثابت (بدون سوال، بلافاصله پس از انتخاب نوع شخصیت اضافه شود)</span></label>' +
+        '<label class="field"><span class="field-label">نمایش برای</span>' +
+          '<div style="display:flex;gap:16px;">' +
+            '<label class="checkbox-row"><input type="checkbox" '+((f.appliesTo||[]).indexOf('حقیقی')!==-1?'checked':'')+' onchange="toggleAppliesTo(\'حقیقی\')" /><span>حقیقی</span></label>' +
+            '<label class="checkbox-row"><input type="checkbox" '+((f.appliesTo||[]).indexOf('حقوقی')!==-1?'checked':'')+' onchange="toggleAppliesTo(\'حقوقی\')" /><span>حقوقی</span></label>' +
+          '</div>' +
+        '</label>' +
+        '<label class="field"><span class="field-label">جرایم مرتبط در صورت عدم انجام</span>' + renderMultiCheck(DB.penalties, f.penaltyIds, 'penaltyIds') + '</label>' +
+        '<div class="btn-row start">' +
+          '<button class="btn btn-primary" onclick="saveForm()">ذخیره</button>' +
+          '<button class="btn btn-ghost" onclick="cancelForm()">انصراف</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+  var list = DB.obligations.map(function(o){
+    return adminRow((o.fixed?'⭐ ':'')+o.title, esc((o.appliesTo||[]).join('، '))+' — موعد: '+esc(o.deadline), "openEditForm('obligation','"+o.id+"')", "deleteItem('obligation','"+o.id+"')");
+  }).join('');
+  return (
+    '<div class="card">' +
+      '<div class="section-title-row"><div class="section-title tight"><h2>تکالیف مالیاتی</h2></div>' +
+      (S.formType==='obligation' ? '' : '<button class="btn btn-primary btn-sm" onclick="openAddForm(\'obligation\')">'+ic('plus',13)+'<span>تکلیف جدید</span></button>') +
+      '</div>' +
+      formHtml +
+      '<div class="stack">'+(list||'<p class="muted">هنوز تکلیفی ثبت نشده است.</p>')+'</div>' +
+    '</div>'
+  );
+}
+
+/* ---------------- جرایم ---------------- */
+function renderPenaltiesAdmin(){
+  var formHtml = '';
+  if(S.formType==='penalty'){
+    var f = S.form;
+    formHtml = (
+      '<div class="form-box">' +
+        '<label class="field"><span class="field-label">عنوان جریمه</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
+        '<label class="field"><span class="field-label">توضیح</span><textarea rows="3" oninput="S.form.description=this.value">'+esc(f.description)+'</textarea></label>' +
+        '<label class="field"><span class="field-label">ماده قانونی</span><input type="text" value="'+esc(f.legalArticle||'')+'" oninput="S.form.legalArticle=this.value" placeholder="مثلاً م ۱۶۹ ق.م.م" /></label>' +
+        '<label class="field"><span class="field-label">نوع محاسبه</span>' +
+          '<select onchange="S.form.calcType=this.value; render();">' +
+            '<option value="fixed" '+(f.calcType==='fixed'?'selected':'')+'>مبلغ ثابت</option>' +
+            '<option value="percent" '+(f.calcType==='percent'?'selected':'')+'>درصدی از مبلغ پایه</option>' +
+            '<option value="permonth" '+(f.calcType==='permonth'?'selected':'')+'>مبلغ ثابت به ازای هر ماه تأخیر</option>' +
+            '<option value="permonth_percent" '+(f.calcType==='permonth_percent'?'selected':'')+'>درصدی از مبلغ پایه به ازای هر ماه تأخیر</option>' +
+          '</select></label>' +
+        '<label class="field"><span class="field-label">'+(f.calcType==='fixed'?'مبلغ (تومان)':(f.calcType==='percent'||f.calcType==='permonth_percent'?'درصد':'مبلغ هر ماه (تومان)'))+'</span><input type="number" value="'+esc(f.value)+'" oninput="S.form.value=this.value" /></label>' +
+        '<label class="field"><span class="field-label">قابل بخشودگی؟</span>' +
+          '<div style="display:flex;align-items:center;gap:16px;">' +
+            '<label class="checkbox-row"><input type="checkbox" '+(f.amnestyEligible?'checked':'')+' onchange="S.form.amnestyEligible=this.checked; render();" /><span>بله</span></label>' +
+            (f.amnestyEligible ? '<input style="max-width:160px;" type="number" value="'+esc(f.amnestyPercent)+'" oninput="S.form.amnestyPercent=this.value" placeholder="درصد بخشودگی" />' : '') +
+          '</div></label>' +
+        '<label class="field"><span class="field-label">قابل تقسیط؟</span>' +
+          '<div style="display:flex;align-items:center;gap:16px;">' +
+            '<label class="checkbox-row"><input type="checkbox" '+(f.installmentEligible?'checked':'')+' onchange="S.form.installmentEligible=this.checked; render();" /><span>بله</span></label>' +
+            (f.installmentEligible ? '<input style="max-width:160px;" type="number" value="'+esc(f.maxInstallments)+'" oninput="S.form.maxInstallments=this.value" placeholder="حداکثر تعداد قسط" />' : '') +
+          '</div></label>' +
+        '<div class="btn-row start">' +
+          '<button class="btn btn-primary" onclick="saveForm()">ذخیره</button>' +
+          '<button class="btn btn-ghost" onclick="cancelForm()">انصراف</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+  var list = DB.penalties.map(function(p){
+    var sub = calcTypeLabel(p.calcType)+' — '+((p.calcType==='percent'||p.calcType==='permonth_percent')?toFa(p.value)+'٪':toman(p.value))+' — بخشودگی: '+(p.amnestyEligible?toFa(p.amnestyPercent)+'٪':'ندارد')+' — اقساط: '+(p.installmentEligible?('تا '+toFa(p.maxInstallments)+' قسط'):'ندارد')+' — '+esc(p.legalArticle||'');
+    return adminRow(p.title, sub, "openEditForm('penalty','"+p.id+"')", "deleteItem('penalty','"+p.id+"')");
+  }).join('');
+  return (
+    '<div class="card">' +
+      '<div class="section-title-row"><div class="section-title tight"><h2>جرایم مالیاتی</h2></div>' +
+      (S.formType==='penalty' ? '' : '<button class="btn btn-primary btn-sm" onclick="openAddForm(\'penalty\')">'+ic('plus',13)+'<span>جریمه جدید</span></button>') +
+      '</div>' +
+      formHtml +
+      '<div class="stack">'+(list||'<p class="muted">هنوز جریمه‌ای ثبت نشده است.</p>')+'</div>' +
+    '</div>'
+  );
+}
+
+/* ---------------- نمونه لوایح ---------------- */
+function renderTemplatesAdmin(){
+  var formHtml = '';
+  if(S.formType==='template'){
+    var f = S.form;
+    formHtml = (
+      '<div class="form-box">' +
+        '<label class="field"><span class="field-label">عنوان قالب</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
+        '<label class="field"><span class="field-label">متن قالب</span><textarea rows="12" oninput="S.form.body=this.value">'+esc(f.body)+'</textarea></label>' +
+        '<div class="btn-row start">' +
+          '<button class="btn btn-primary" onclick="saveForm()">ذخیره</button>' +
+          '<button class="btn btn-ghost" onclick="cancelForm()">انصراف</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+  var list = DB.templates.map(function(t){
+    return adminRow(t.title, esc(t.body.slice(0,90))+'...', "openEditForm('template','"+t.id+"')", "deleteItem('template','"+t.id+"')");
+  }).join('');
+  return (
+    '<div class="card">' +
+      '<div class="section-title-row"><div class="section-title tight"><h2>نمونه لوایح</h2></div>' +
+      (S.formType==='template' ? '' : '<button class="btn btn-primary btn-sm" onclick="openAddForm(\'template\')">'+ic('plus',13)+'<span>قالب جدید</span></button>') +
+      '</div>' +
+      '<div class="block small-muted" style="margin-bottom:14px;">متغیرهای قابل استفاده در متن: <code class="tpl-var">{{taxpayerType}}</code> <code class="tpl-var">{{penaltiesList}}</code> <code class="tpl-var">{{totalRaw}}</code> <code class="tpl-var">{{totalAmnesty}}</code> <code class="tpl-var">{{date}}</code></div>' +
+      formHtml +
+      '<div class="stack">'+(list||'<p class="muted">هنوز قالبی ثبت نشده است.</p>')+'</div>' +
+    '</div>'
+  );
+}
+
+/* ---------------- بسته‌های مشاوره ---------------- */
+function renderPlansAdmin(){
+  var formHtml = '';
+  if(S.formType==='plan'){
+    var f = S.form;
+    formHtml = (
+      '<div class="form-box">' +
+        '<label class="field"><span class="field-label">عنوان بسته</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
+        '<label class="field"><span class="field-label">مدت</span><input type="text" value="'+esc(f.duration)+'" oninput="S.form.duration=this.value" /></label>' +
+        '<label class="field"><span class="field-label">قیمت (تومان — صفر برای رایگان)</span><input type="number" value="'+esc(f.price)+'" oninput="S.form.price=this.value" /></label>' +
+        '<label class="field"><span class="field-label">توضیح</span><textarea rows="3" oninput="S.form.desc=this.value">'+esc(f.desc)+'</textarea></label>' +
+        '<div class="btn-row start">' +
+          '<button class="btn btn-primary" onclick="saveForm()">ذخیره</button>' +
+          '<button class="btn btn-ghost" onclick="cancelForm()">انصراف</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+  var list = DB.plans.map(function(p){
+    return adminRow(p.title, esc(p.duration)+' — '+(p.price===0?'رایگان':toman(p.price)), "openEditForm('plan','"+p.id+"')", "deleteItem('plan','"+p.id+"')");
+  }).join('');
+  return (
+    '<div class="card">' +
+      '<div class="section-title-row"><div class="section-title tight"><h2>بسته‌های مشاوره (منبع درآمد)</h2></div>' +
+      (S.formType==='plan' ? '' : '<button class="btn btn-primary btn-sm" onclick="openAddForm(\'plan\')">'+ic('plus',13)+'<span>بسته جدید</span></button>') +
+      '</div>' +
+      formHtml +
+      '<div class="stack">'+(list||'<p class="muted">هنوز بسته‌ای ثبت نشده است.</p>')+'</div>' +
+    '</div>'
+  );
+}
+
+/* ---------------- درخواست‌های تماس (Leads) ---------------- */
+function updateLeadStatus(id, status){
+  DB.leads = DB.leads.map(function(l){ return l.id===id ? Object.assign({}, l, {status:status}) : l; });
+  saveDB('leads');
+}
+function deleteLead(id){
+  if(!confirm('آیا از حذف این درخواست مطمئن هستید؟')) return;
+  DB.leads = DB.leads.filter(function(l){return l.id!==id;});
+  saveDB('leads');
+  render();
+}
+function onLeadsQueryInput(v){ S.leadsQuery = v; render(); }
+function csvEscape(v){
+  v = String(v===null||v===undefined?'':v);
+  if(/[",\n]/.test(v)) v = '"'+v.replace(/"/g,'""')+'"';
+  return v;
+}
+function exportLeadsCSV(){
+  var header = ['نام','شماره تماس','نوع مؤدی','بسته انتخابی','مجموع جرایم','وضعیت','توضیحات','تاریخ ثبت'];
+  var rows = DB.leads.map(function(l){
+    return [l.name, l.phone, l.personType||'', l.planTitle||'', l.totalRaw||0, l.status||'جدید', (l.note||'').replace(/\n/g,' '), l.createdAt];
+  });
+  var csv = [header].concat(rows).map(function(r){ return r.map(csvEscape).join(','); }).join('\r\n');
+  downloadBlob('\uFEFF'+csv, 'leads.csv', 'text/csv;charset=utf-8');
+}
+function renderLeadsAdmin(){
+  var q = (S.leadsQuery||'').trim();
+  var filtered = DB.leads.filter(function(l){
+    return !q || (l.name&&l.name.indexOf(q)!==-1) || (l.phone&&l.phone.indexOf(q)!==-1) || (l.note&&l.note.indexOf(q)!==-1);
+  });
+  var list = filtered.slice().reverse().map(function(l){
+    var statusOptions = LEAD_STATUSES.map(function(s){ return '<option value="'+s+'" '+((l.status||'جدید')===s?'selected':'')+'>'+s+'</option>'; }).join('');
+    var extra = '<div style="margin-top:8px;max-width:220px;"><select onchange="updateLeadStatus(\''+l.id+'\', this.value)">'+statusOptions+'</select></div>';
+    var sub = 'نوع مؤدی: '+esc(l.personType||'—')+' — بسته: '+esc(l.planTitle||'—')+' — مجموع جرایم: '+toman(l.totalRaw)+(l.note?(' — '+esc(l.note)):'');
+    return adminRow(l.name+' — '+l.phone, sub, null, "deleteLead('"+l.id+"')", extra);
+  }).join('');
+  return (
+    '<div class="card">' +
+      '<div class="section-title-row"><div class="section-title tight"><h2>درخواست‌های تماس ثبت‌شده</h2></div>' +
+        '<button class="btn btn-ghost btn-sm" '+(DB.leads.length===0?'disabled':'')+' onclick="exportLeadsCSV()">'+ic('download',13)+'<span>خروجی CSV</span></button>' +
+      '</div>' +
+      '<div class="search-wrap" style="margin-bottom:16px;">' +
+        '<span class="search-icon">'+ic('search',15)+'</span>' +
+        '<input type="text" value="'+esc(S.leadsQuery)+'" oninput="onLeadsQueryInput(this.value)" placeholder="جستجو بر اساس نام یا شماره تماس" /></div>' +
+      '<div class="stack">'+(filtered.length===0 ? '<p class="muted">هنوز درخواستی ثبت نشده است.</p>' : list)+'</div>' +
+    '</div>'
+  );
+}
+
+/* ---------------- لایسنس‌ها ---------------- */
+function genLicenseCode(){
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var s = '';
+  for(var i=0;i<6;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+function fillGeneratedLicenseCode(){
+  var el = document.getElementById('newLicenseCodeInput');
+  if(el) el.value = genLicenseCode();
+}
+function setNewLicenseDuration(m){ S.newLicenseDuration = Number(m); render(); }
+function addLicense(){
+  var codeEl = document.getElementById('newLicenseCodeInput');
+  var noteEl = document.getElementById('newLicenseNoteInput');
+  var code = codeEl ? codeEl.value.trim() : '';
+  var note = noteEl ? noteEl.value.trim() : '';
+  var months = S.newLicenseDuration || 1;
+  if(!code){ alert('کد لایسنس را وارد یا تولید کنید.'); return; }
+  if(DB.licenses.some(function(l){return l.code===code;})){ alert('این کد قبلاً ثبت شده است.'); return; }
+  var createdAt = new Date().toISOString();
+  DB.licenses.push({code:code, note:note, durationMonths:months, createdAt:createdAt, expiresAt: addMonthsIso(createdAt, months)});
+  saveDB('licenses');
+  render();
+}
+function deleteLicense(code){
+  if(!confirm('این کد لایسنس حذف شود؟')) return;
+  DB.licenses = DB.licenses.filter(function(l){return l.code!==code;});
+  saveDB('licenses');
+  render();
+}
+function toggleDefaultLicense(checked){
+  DB.meta.defaultLicenseEnabled = checked;
+  saveDB('meta');
+  render();
+}
+function saveDefaultLicenseCode(){
+  var el = document.getElementById('defaultLicenseCodeInput');
+  var v = el ? el.value.trim() : '';
+  DB.meta.defaultLicenseCode = v || '123';
+  saveDB('meta');
+  render();
+}
+function resetLocalLicenseVerification(){
+  clearLicenseVerified();
+  alert('تأیید لایسنس در همین مرورگر پاک شد. کاربر باید دوباره کد وارد کند.');
+}
+function clearLicenseLogs(){
+  if(!confirm('گزارش استفاده از لایسنس‌ها پاک شود؟')) return;
+  DB.licenseLogs = [];
+  saveDB('licenseLogs');
+  render();
+}
+function renderLicensesAdmin(){
+  var now = Date.now();
+  var licenseRows = DB.licenses.map(function(l){
+    var expired = l.expiresAt && new Date(l.expiresAt).getTime() < now;
+    var statusBadge = expired ? '<span class="badge badge-red">منقضی‌شده</span>' : '<span class="badge badge-green">فعال</span>';
+    var durLabel = (LICENSE_DURATIONS.filter(function(d){return d.months===l.durationMonths;})[0]||{}).label || (toFa(l.durationMonths||0)+' ماهه');
+    var sub = (l.note?esc(l.note)+' — ':'')+durLabel+' — ثبت‌شده: '+new Date(l.createdAt).toLocaleDateString('fa-IR')+(l.expiresAt?(' — انقضا: '+new Date(l.expiresAt).toLocaleDateString('fa-IR')):'')+' '+statusBadge;
+    return adminRow(l.code, sub, null, "deleteLicense('"+l.code+"')");
+  }).join('');
+  var logsRows = DB.licenseLogs.slice().reverse().slice(0,25).map(function(l){
+    return '<div class="small-muted" style="padding:4px 0;border-bottom:1px solid var(--line);">کد <b>'+esc(l.code)+'</b> — '+new Date(l.at).toLocaleString('fa-IR')+'</div>';
+  }).join('');
+  var durationRadios = LICENSE_DURATIONS.map(function(d){
+    return '<label class="radio-row"><input type="radio" name="licDuration" '+(S.newLicenseDuration===d.months?'checked':'')+' onchange="setNewLicenseDuration('+d.months+')" /><span>'+d.label+'</span></label>';
+  }).join('');
+  return (
+    '<div class="card">' +
+      '<div class="section-title tight"><h2>مدیریت لایسنس دسترسی به «جرایم»</h2></div>' +
+      '<p class="muted" style="margin:8px 0 16px;">هر کاربری که سهمیه رایگانش تمام شده باشد یا بخواهد مرحله «انتخاب و محاسبه جرایم» را ببیند، باید یک کد لایسنس معتبر و فعال وارد کند. لایسنس‌ها یک، شش یا دوازده ماهه هستند و پس از انقضا خودکار غیرفعال می‌شوند.</p>' +
+
+      '<div class="block" style="margin-bottom:18px;">' +
+        '<label class="checkbox-row"><input type="checkbox" '+(DB.meta.defaultLicenseEnabled!==false?'checked':'')+' onchange="toggleDefaultLicense(this.checked)" /><span style="font-weight:700;">فعال بودن لایسنس پیش‌فرض عمومی (دائمی، بدون انقضا)</span></label>' +
+        '<div class="grid2" style="margin-top:10px;">' +
+          '<label class="field"><span class="field-label">کد لایسنس پیش‌فرض</span>' +
+            '<input type="text" id="defaultLicenseCodeInput" value="'+esc(DB.meta.defaultLicenseCode||'123')+'" /></label>' +
+          '<div style="align-self:end;"><button class="btn btn-ghost" onclick="saveDefaultLicenseCode()">ذخیره کد پیش‌فرض</button></div>' +
+        '</div>' +
+        '<div class="field-hint">توصیه امنیتی: لایسنس پیش‌فرض («123») را فقط برای تست یا معرفی اولیه نگه دارید؛ برای مشتریان واقعی کد اختصاصی با مدت مشخص بسازید.</div>' +
+      '</div>' +
+
+      '<div class="section-title-row"><div style="font-weight:800;">کدهای لایسنس اختصاصی (۱، ۶ یا ۱۲ ماهه)</div></div>' +
+      '<div class="form-box">' +
+        '<div class="grid3">' +
+          '<label class="field"><span class="field-label">کد لایسنس</span><input type="text" id="newLicenseCodeInput" placeholder="مثلاً A1B2C3" /></label>' +
+          '<label class="field"><span class="field-label">یادداشت (اختیاری، مثلاً نام مشتری)</span><input type="text" id="newLicenseNoteInput" placeholder="مثلاً شرکت نمونه" /></label>' +
+          '<div style="align-self:end;display:flex;gap:8px;">' +
+            '<button class="btn btn-ghost" onclick="fillGeneratedLicenseCode()">تولید خودکار</button>' +
+            '<button class="btn btn-primary" onclick="addLicense()">افزودن</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:6px;">'+durationRadios+'</div>' +
+      '</div>' +
+      '<div class="stack" style="margin-bottom:18px;">'+(licenseRows || '<p class="muted">هنوز کد اختصاصی ثبت نشده است.</p>')+'</div>' +
+
+      '<div class="section-title-row"><div style="font-weight:800;">گزارش استفاده اخیر</div>' +
+        '<button class="btn btn-ghost btn-sm" onclick="clearLicenseLogs()">پاک‌کردن گزارش</button></div>' +
+      '<div class="block">'+(logsRows || '<span class="small-muted">هنوز موردی ثبت نشده است.</span>')+'</div>' +
+
+      '<div class="btn-row start" style="margin-top:16px;">' +
+        '<button class="btn btn-ghost" onclick="resetLocalLicenseVerification()">بازنشانی تأیید لایسنس در همین مرورگر (برای تست)</button>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+/* ---------------- تنظیمات ---------------- */
+function saveSettings(){
+  var ids = ['brandNameInput','taglineInput','phoneInput','whatsappInput','notifyEmailInput','adminPasswordInput','adTextInput','freeQueryLimitInput'];
+  var vals = {};
+  ids.forEach(function(id){ var el=document.getElementById(id); if(el) vals[id]=el.value; });
+  DB.meta.brandName = vals.brandNameInput || DB.meta.brandName;
+  DB.meta.tagline = vals.taglineInput || '';
+  DB.meta.phone = vals.phoneInput || '';
+  DB.meta.whatsapp = vals.whatsappInput || '';
+  DB.meta.notifyEmail = vals.notifyEmailInput || '';
+  DB.meta.adminPassword = vals.adminPasswordInput || '123456';
+  DB.meta.adText = vals.adTextInput || '';
+  DB.meta.freeQueryLimit = Math.max(0, parseInt(vals.freeQueryLimitInput,10) || 0);
+  var adEl = document.getElementById('adEnabledInput');
+  DB.meta.adEnabled = adEl ? adEl.checked : true;
+  saveDB('meta');
+  S.settingsSaved = true;
+  render();
+  setTimeout(function(){ S.settingsSaved=false; render(); }, 1800);
+}
+function renderSettingsAdmin(){
+  var m = DB.meta;
+  var adminUrl = window.location.origin + window.location.pathname + '#' + ADMIN_SECRET;
+  var userUrl = window.location.origin + window.location.pathname;
+  return (
+    '<div class="card">' +
+      '<div class="section-title tight"><h2>تنظیمات کلی</h2></div>' +
+      '<div class="alert-box info" style="margin:10px 0 10px;">'+ic('key',14)+'<span>لینک ورود پنل مدیریت (فقط برای خودتان نگه دارید):<br/><code class="tpl-var" style="user-select:all;word-break:break-all;">'+esc(adminUrl)+'</code></span></div>' +
+      '<div class="alert-box ok" style="margin:0 0 16px;">'+ic('users',14)+'<span>لینک ورود کاربران (قابل اشتراک‌گذاری عمومی):<br/><code class="tpl-var" style="user-select:all;word-break:break-all;">'+esc(userUrl)+'</code></span></div>' +
+      '<div style="margin-top:14px;">' +
+      '<label class="field"><span class="field-label">نام برند</span><input type="text" id="brandNameInput" value="'+esc(m.brandName)+'" /></label>' +
+      '<label class="field"><span class="field-label">شعار کوتاه</span><input type="text" id="taglineInput" value="'+esc(m.tagline)+'" /></label>' +
+      '<label class="field"><span class="field-label">شماره تماس مشاوره</span><input type="text" id="phoneInput" value="'+esc(m.phone)+'" /></label>' +
+      '<label class="field"><span class="field-label">شماره واتس‌اپ (اختیاری، با کد کشور بدون + مثل 989121234567)</span><input type="text" id="whatsappInput" value="'+esc(m.whatsapp||'')+'" placeholder="989121234567" /></label>' +
+      '<label class="field"><span class="field-label">ایمیل دریافت درخواست‌های مشاوره</span><input type="text" id="notifyEmailInput" value="'+esc(m.notifyEmail||'')+'" placeholder="you@example.com" />' +
+        '<span class="field-hint">اولین بار باید ایمیل تأیید FormSubmit که به این آدرس ارسال می‌شود را یک‌بار کلیک کنید تا فعال شود.</span></label>' +
+      '<label class="field"><span class="field-label">رمز عبور پنل مدیریت</span><input type="password" id="adminPasswordInput" value="'+esc(m.adminPassword||'')+'" placeholder="123456" />' +
+        '<span class="field-hint">این رمز فقط در همین مرورگر و برای همین ابزار کاربرد دارد. آن را نزد خود محرمانه نگه دارید.</span></label>' +
+      '<label class="field"><span class="field-label">تعداد استعلام رایگان هر کاربر</span><input type="number" id="freeQueryLimitInput" value="'+esc(m.freeQueryLimit!=null?m.freeQueryLimit:3)+'" min="0" /></label>' +
+      '<label class="field"><span class="field-label">متن نوار تبلیغاتی متحرک</span><textarea id="adTextInput" rows="2">'+esc(m.adText||'')+'</textarea></label>' +
+      '<label class="checkbox-row"><input type="checkbox" id="adEnabledInput" '+(m.adEnabled!==false?'checked':'')+' /><span style="font-weight:700;">نمایش نوار تبلیغاتی</span></label>' +
+      '<div class="btn-row start">' +
+        '<button class="btn btn-primary" onclick="saveSettings()">ذخیره تنظیمات</button>' +
+        (S.settingsSaved ? '<span class="small-muted" style="color:var(--green);">ذخیره شد ✔</span>' : '') +
+      '</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+/* ---------------- راهنما ---------------- */
+function renderGuideAdmin(){
+  var rulesJson = '{\n  "rules": {\n    "'+FB_ROOT+'": {\n      ".read": "auth != null",\n      ".write": "auth != null"\n    }\n  }\n}';
+  return (
+    '<div class="card">' +
+      '<div class="section-title tight"><h2>راهنمای کامل راه‌اندازی</h2></div>' +
+      '<p class="muted" style="margin:8px 0 18px;">این برنامه یک فایل تک‌صفحه‌ای (index.html) است؛ نیازی به نصب یا بیلد ندارد. تنها دو سرویس بیرونی استفاده می‌شود: <b>Firebase Realtime Database</b> برای ذخیره‌سازی مشترک اطلاعات بین همه کاربران/مرورگرها، و <b>FormSubmit</b> برای ارسال ایمیل درخواست مشاوره. سرویس دیگری (مثل گوگل درایو) استفاده نشده و نیازی هم نیست.</p>' +
+
+      '<div class="block outline-gold" style="margin-bottom:14px;">' +
+        '<div style="font-weight:800;margin-bottom:6px;">۱) چرا تغییرات فقط روی مرورگر خودم دیده می‌شد؟</div>' +
+        '<div class="small-muste small-muted" style="line-height:1.9;">وقتی یک دیتابیس Realtime Database در Firebase ساخته می‌شود، به‌طور پیش‌فرض یا در «حالت آزمایشی» (که بعد از ۳۰ روز منقضی می‌شود) یا در «حالت قفل» قرار دارد که در آن هیچ‌کس اجازه خواندن/نوشتن ندارد. در نسخه قبلی این برنامه هیچ ورود (Authentication) انجام نمی‌شد، بنابراین وقتی Rules نیاز به ورود داشت یا کلاً همه‌چیز را رد می‌کرد، نوشتن روی Firebase با خطا مواجه می‌شد ولی چون صفحه بلافاصله از حافظه داخلی مرورگر (localStorage) به‌روزرسانی می‌شد، به نظر می‌رسید کار می‌کند — درحالی‌که هیچ داده‌ای واقعاً به Firebase نمی‌رسید و بقیه کاربران آن را نمی‌دیدند.<br/>در این نسخه، برنامه به‌صورت خودکار با «ورود ناشناس» (Anonymous Authentication) به Firebase وصل می‌شود و اگر ذخیره یا خواندن با خطا مواجه شود، پیغام قرمز رنگ آن را در بالای صفحه نشان می‌دهد.</div>' +
+      '</div>' +
+
+      '<div class="block" style="margin-bottom:14px;">' +
+        '<div style="font-weight:800;margin-bottom:6px;">۲) تنظیم Firebase (برای هماهنگی بین همه کاربران)</div>' +
+        '<ol class="small-muted" style="line-height:2;padding-right:18px;margin:0;">' +
+          '<li>وارد <b>console.firebase.google.com</b> شوید و پروژه‌ای که کلیدهایش در این فایل قرار دارد را باز کنید (پروژه: <code class="tpl-var">endtax-2d555</code>).</li>' +
+          '<li>از منوی سمت راست: <b>Build → Authentication → Sign-in method</b>. روی <b>Anonymous</b> کلیک کرده و آن را <b>Enable</b> کنید و ذخیره کنید.</li>' +
+          '<li>از منوی سمت راست: <b>Build → Realtime Database</b>. اگر دیتابیس نساخته‌اید، «Create Database» را بزنید (هر منطقه‌ای مناسب است).</li>' +
+          '<li>وارد تب <b>Rules</b> در همان صفحه Realtime Database شوید و کل محتوای آن را با متن زیر جایگزین کنید، سپس <b>Publish</b> را بزنید:</li>' +
+        '</ol>' +
+        '<pre class="code-block">'+esc(rulesJson)+'</pre>' +
+        '<div class="small-muted">این تنظیم یعنی فقط کاربرانی که وارد شده باشند (حتی به‌صورت ناشناس) می‌توانند بخوانند/بنویسند — که دقیقاً همان کاری است که این برنامه انجام می‌دهد. نیازی به تغییر کد نیست.</div>' +
+      '</div>' +
+
+      '<div class="block" style="margin-bottom:14px;">' +
+        '<div style="font-weight:800;margin-bottom:6px;">۳) انتشار روی GitHub Pages</div>' +
+        '<ol class="small-muted" style="line-height:2;padding-right:18px;margin:0;">' +
+          '<li>در GitHub یک ریپازیتوری جدید (Public) بسازید.</li>' +
+          '<li>همین فایل را با نام دقیق <code class="tpl-var">index.html</code> در ریشه ریپازیتوری آپلود کنید (Add file → Upload files).</li>' +
+          '<li>به <b>Settings → Pages</b> بروید، در بخش Source گزینه «Deploy from a branch» را انتخاب کنید، شاخه <b>main</b> و پوشه <b>/ (root)</b> را انتخاب و Save کنید.</li>' +
+          '<li>بعد از حدود یک تا دو دقیقه، آدرسی شبیه <code class="tpl-var">https://USERNAME.github.io/REPO-NAME/</code> فعال می‌شود؛ همین آدرس را برای کاربران ارسال کنید.</li>' +
+          '<li>این فایل نیازی به بیلد یا نصب ندارد و روی GitHub Pages بدون مشکل اجرا می‌شود؛ اسکریپت‌های Firebase و فونت از CDN عمومی بارگذاری می‌شوند.</li>' +
+        '</ol>' +
+      '</div>' +
+
+      '<div class="block" style="margin-bottom:14px;">' +
+        '<div style="font-weight:800;margin-bottom:6px;">۴) ایمیل درخواست‌های مشاوره</div>' +
+        '<div class="small-muted" style="line-height:1.9;">ایمیل مقصد در تب «تنظیمات» تنظیم می‌شود (اکنون: <code class="tpl-var">Msalimabadifarahani@gmail.com</code>). سرویس FormSubmit اولین بار که یک درخواست ارسال شود، یک ایمیل تأیید به همان آدرس می‌فرستد که باید یک‌بار روی لینک تأیید آن کلیک شود تا از آن پس ایمیل‌ها به‌طور خودکار برسند.</div>' +
+      '</div>' +
+
+      '<div class="block">' +
+        '<div style="font-weight:800;margin-bottom:6px;">۵) لینک‌های ورود و لایسنس</div>' +
+        '<div class="small-muted" style="line-height:1.9;">لینک ورود کاربر همان آدرس اصلی سایت است؛ لینک ورود مدیر همان آدرس به‌همراه <code class="tpl-var">#'+ADMIN_SECRET+'</code> در انتها است (هر دو در تب «تنظیمات» قابل کپی هستند). لایسنس پیش‌فرض «۱۲۳» فقط برای تست است؛ برای مشتریان واقعی از تب «لایسنس‌ها» کد اختصاصی با مدت ۱، ۶ یا ۱۲ ماهه بسازید.</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+/* ============================================================
+   راه‌اندازی برنامه
+   ============================================================ */
+function boot(){
+  loadDB();
+  checkAdminHash();
+  if(!S.wiz.lead.planId && DB.plans[0]) S.wiz.lead.planId = DB.plans[0].id;
+  if(!S.wiz.templateId && DB.templates[0]) S.wiz.templateId = DB.templates[0].id;
+  restoreAuthSession();
+  render();
+  fbBoot();
+}
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
+</script>
+</body>
+</html>
