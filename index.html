@@ -8,143 +8,125 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
-  :root{
-    --ink:#1B2A45; --ink-soft:#4A5876; --paper:#F7F4EC; --paper-alt:#EFE9D8;
-    --card:#FFFFFF; --gold:#B8862E; --gold-light:#E7C878; --red:#A23B3B;
-    --red-soft:#F3E2E0; --green:#3F7A5D; --green-soft:#E1EDE5; --line:#DCD4BC;
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{font-family:'Vazirmatn',Tahoma,Arial,sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;line-height:1.6;}
-  ::selection{background:var(--gold-light);}
-  a{color:inherit;}button{font-family:inherit;cursor:pointer;}
-  .container{max-width:960px;margin:0 auto;padding:0 16px;}
-  .hidden{display:none !important;}
-  .site-header{border-bottom:1px solid var(--line);padding:18px 0;}
-  .site-header .inner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-  .brand{display:flex;align-items:center;gap:12px;min-width:0;}
-  .brand-badge{width:44px;height:44px;border-radius:12px;background:var(--ink);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-  .brand-name{font-weight:800;font-size:16px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .brand-tagline{font-size:12px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60vw;}
-  .header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-  .disclaimer{font-size:12px;border-radius:12px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px;background:var(--red-soft);color:var(--red);margin:14px 0 4px;}
-  .warn-banner{font-size:12px;border-radius:12px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px;background:#FCEFD1;color:#7a5b06;margin:0 0 14px;}
-  .error-banner{font-size:12px;border-radius:12px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px;background:#3a1414;color:#ffd7d0;margin:0 0 14px;}
-  .success-banner{font-size:12px;border-radius:12px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px;background:var(--green-soft);color:var(--green);margin:0 0 14px;}
-  .site-footer{padding:24px 0 32px;}
-  .site-footer .inner{border-top:1px solid var(--line);padding-top:14px;font-size:12px;text-align:center;color:var(--ink-soft);}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 1px 2px rgba(27,42,69,.05);margin-bottom:16px;}
-  .card.narrow{max-width:440px;margin:24px auto;}
-  .btn{display:inline-flex;align-items:center;gap:6px;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:700;border:none;transition:transform .1s,opacity .15s;cursor:pointer;}
-  .btn:active{transform:scale(.96);}
-  .btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
-  .btn-primary{background:var(--ink);color:#fff;}
-  .btn-gold{background:var(--gold);color:#fff;}
-  .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line);}
-  .btn-danger{background:var(--red-soft);color:var(--red);}
-  .btn-success{background:var(--green);color:#fff;}
-  .btn-sm{padding:7px 10px;font-size:12px;border-radius:8px;}
-  .btn-row{display:flex;justify-content:space-between;gap:8px;margin-top:20px;flex-wrap:wrap;}
-  .btn-row.start{justify-content:flex-start;}
-  .badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap;}
-  .badge-gold{background:var(--gold-light);color:#5c4109;}
-  .badge-red{background:var(--red-soft);color:var(--red);}
-  .badge-green{background:var(--green-soft);color:var(--green);}
-  .badge-ink{background:var(--paper-alt);color:var(--ink);}
-  label.field{display:block;margin-bottom:14px;}
-  .field-label{display:block;font-size:13.5px;font-weight:700;margin-bottom:6px;color:var(--ink);}
-  .field-hint{display:block;font-size:11.5px;margin-top:5px;color:var(--ink-soft);}
-  .field-error{display:block;font-size:11.5px;margin-top:5px;color:var(--red);}
-  input[type=text],input[type=password],input[type=number],input[type=tel],select,textarea{
-    border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;
-    padding:10px 12px;font-size:14px;font-family:inherit;width:100%;outline:none;
-  }
-  input:focus,select:focus,textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(184,134,46,.15);}
-  textarea{resize:vertical;line-height:1.8;}
-  .checkbox-row{display:flex;align-items:center;gap:8px;font-size:13.5px;padding:4px 0;cursor:pointer;user-select:none;}
-  .checkbox-row input{width:16px;height:16px;flex-shrink:0;}
-  .section-eyebrow{font-size:11.5px;font-weight:800;color:var(--gold);margin-bottom:4px;letter-spacing:.02em;}
-  .section-title{display:flex;align-items:center;gap:8px;margin:0 0 18px;}
-  .section-title h2{font-size:19px;font-weight:800;margin:0;color:var(--ink);}
-  .section-title.tight{margin-bottom:0;}
-  .section-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
-  .muted{color:var(--ink-soft);font-size:13.5px;}
-  .small-muted{color:var(--ink-soft);font-size:12px;}
-  .grid2{display:grid;grid-template-columns:1fr;gap:14px;}
-  .grid3{display:grid;grid-template-columns:1fr;gap:12px;}
-  .grid4{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
-  @media(min-width:680px){.grid2{grid-template-columns:1fr 1fr;}.grid3{grid-template-columns:repeat(3,1fr);}.grid4{grid-template-columns:repeat(4,1fr);}}
-  .col-span-2{grid-column:1/-1;}
-  .choice-card{text-align:right;border-radius:16px;padding:18px;border:1px solid var(--line);background:var(--paper-alt);transition:transform .12s;width:100%;cursor:pointer;}
-  .choice-card:hover{transform:translateY(-2px);}
-  .choice-card .title{font-weight:800;margin-top:8px;color:var(--ink);}
-  .choice-card .desc{font-size:12px;margin-top:4px;color:var(--ink-soft);}
-  .option-btn{display:block;width:100%;text-align:right;border-radius:12px;padding:12px 14px;border:1px solid var(--line);background:var(--paper-alt);color:var(--ink);font-weight:700;font-size:13.5px;margin-bottom:9px;cursor:pointer;}
-  .progress-tabs{display:flex;gap:6px;margin-bottom:22px;overflow-x:auto;padding-bottom:4px;}
-  .progress-tab{flex-shrink:0;display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:999px;font-size:11.5px;font-weight:800;background:var(--paper-alt);color:var(--ink-soft);white-space:nowrap;}
-  .progress-tab.active{background:var(--ink);color:#fff;}
-  .progress-tab.done{background:var(--green-soft);color:var(--green);}
-  .block{border-radius:14px;padding:14px;background:var(--paper-alt);}
-  .block + .block{margin-top:10px;}
-  .block.outline-gold{border:1.5px solid var(--gold);}
-  .stack{display:flex;flex-direction:column;gap:10px;}
-  .admin-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;}
-  .admin-tab{display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:999px;font-size:12px;font-weight:800;background:var(--paper-alt);color:var(--ink-soft);border:none;cursor:pointer;}
-  .admin-tab.active{background:var(--ink);color:#fff;}
-  .admin-row{border-radius:14px;padding:14px;background:var(--paper-alt);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
-  .admin-row .row-main{min-width:0;flex:1;}
-  .admin-row .row-title{font-weight:800;font-size:13.5px;color:var(--ink);}
-  .admin-row .row-sub{font-size:12px;margin-top:4px;line-height:1.8;color:var(--ink-soft);}
-  .admin-row .row-actions{display:flex;gap:6px;flex-shrink:0;}
-  .form-box{border-radius:14px;padding:16px;background:var(--paper-alt);margin-bottom:18px;}
-  .stat-box{border-radius:14px;padding:14px;background:var(--paper-alt);}
-  .stat-value{font-size:18px;font-weight:800;margin-top:8px;color:var(--ink);}
-  .stat-label{font-size:12px;margin-top:4px;color:var(--ink-soft);}
-  .summary-box{border-radius:14px;padding:14px;margin-top:8px;background:var(--ink);color:#fff;}
-  .summary-row{display:flex;justify-content:space-between;font-size:13.5px;}
-  .summary-row + .summary-row{margin-top:4px;}
-  .lead-plan{text-align:right;border-radius:12px;padding:14px;border:1px solid var(--line);background:var(--card);width:100%;cursor:pointer;}
-  .lead-plan.selected{border-color:var(--gold);background:var(--paper-alt);}
-  .lead-plan .p-title{font-weight:800;font-size:13.5px;color:var(--ink);}
-  .lead-plan .p-dur{font-size:12px;margin-top:3px;color:var(--ink-soft);}
-  .lead-plan .p-price{font-weight:800;margin-top:8px;}
-  .lead-plan .p-desc{font-size:12px;margin-top:5px;line-height:1.7;color:var(--ink-soft);}
-  .success-box{border-radius:14px;padding:14px;background:var(--green-soft);color:var(--green);}
-  .success-box .title-row{display:flex;align-items:center;gap:8px;font-weight:700;}
-  .lock-wrap{display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:18px;}
-  .lock-badge{width:52px;height:52px;border-radius:14px;background:var(--ink);display:flex;align-items:center;justify-content:center;margin-bottom:10px;}
-  .lock-wrap h2{margin:0;font-size:17px;font-weight:800;color:var(--ink);}
-  .lock-wrap p{margin:4px 0 0;font-size:12px;color:var(--ink-soft);}
-  .alert-box{font-size:12px;border-radius:12px;padding:10px 12px;margin-top:10px;}
-  .alert-box.error{background:var(--red-soft);color:var(--red);}
-  .alert-box.info{background:var(--red-soft);color:var(--red);display:flex;gap:6px;align-items:flex-start;}
-  .alert-box.ok{background:var(--green-soft);color:var(--green);display:flex;gap:6px;align-items:flex-start;}
-  code.tpl-var{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:11.5px;}
-  .ad-marquee{background:linear-gradient(90deg,#1B2A45,#3a2f12,#1B2A45);color:var(--gold-light);overflow:hidden;white-space:nowrap;padding:11px 0;border-radius:12px;margin:14px 0;border:1px solid var(--gold);}
-  .ad-marquee .track{display:inline-block;padding-right:100%;animation:adscroll 20s linear infinite;}
-  .ad-marquee:hover .track{animation-play-state:paused;}
-  @keyframes adscroll{0%{transform:translateX(0);}100%{transform:translateX(-100%);}}
-  .ad-marquee .track span{padding:0 40px;font-size:14px;font-weight:800;letter-spacing:.01em;}
-  .quota-pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--paper-alt);color:var(--ink-soft);margin-bottom:10px;}
-  .sync-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;}
-  .sync-pill.online{background:var(--green-soft);color:var(--green);}
-  .sync-pill.offline{background:var(--red-soft);color:var(--red);}
-  .sync-pill.connecting{background:var(--paper-alt);color:var(--ink-soft);}
-  .backup-box{border:1px dashed var(--gold);border-radius:14px;padding:16px;background:var(--paper-alt);margin-top:10px;}
-  .loading-wrap{min-height:60vh;display:flex;align-items:center;justify-content:center;}
-  .loading-wrap .inner{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink-soft);}
-  svg.ic{flex-shrink:0;}
-  @keyframes spin{to{transform:rotate(360deg);}}
-  .spin{animation:spin 1s linear infinite;}
+/* ===== استایل کامل ===== */
+:root{
+  --ink:#1B2A45; --ink-soft:#4A5876; --paper:#F7F4EC; --paper-alt:#EFE9D8;
+  --card:#FFFFFF; --gold:#B8862E; --gold-light:#E7C878; --red:#A23B3B;
+  --red-soft:#F3E2E0; --green:#3F7A5D; --green-soft:#E1EDE5; --line:#DCD4BC;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Vazirmatn',Tahoma,Arial,sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;line-height:1.6;}
+a{color:inherit;}button{font-family:inherit;cursor:pointer;}
+.container{max-width:960px;margin:0 auto;padding:0 16px;}
+.site-header{border-bottom:1px solid var(--line);padding:18px 0;}
+.site-header .inner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.brand{display:flex;align-items:center;gap:12px;min-width:0;}
+.brand-badge{width:44px;height:44px;border-radius:12px;background:var(--ink);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.brand-name{font-weight:800;font-size:16px;color:var(--ink);}
+.brand-tagline{font-size:12px;color:var(--ink-soft);}
+.header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.btn{display:inline-flex;align-items:center;gap:6px;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:700;border:none;cursor:pointer;transition:transform .1s;}
+.btn:active{transform:scale(.96);}
+.btn-primary{background:var(--ink);color:#fff;}
+.btn-gold{background:var(--gold);color:#fff;}
+.btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line);}
+.btn-sm{padding:7px 10px;font-size:12px;border-radius:8px;}
+.btn-row{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 1px 2px rgba(27,42,69,.05);margin-bottom:16px;}
+.card.narrow{max-width:440px;margin:24px auto;}
+.grid2{display:grid;grid-template-columns:1fr;gap:14px;}
+@media(min-width:680px){.grid2{grid-template-columns:1fr 1fr;}}
+.grid4{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+@media(min-width:680px){.grid4{grid-template-columns:repeat(4,1fr);}}
+.field{display:block;margin-bottom:14px;}
+.field-label{display:block;font-size:13.5px;font-weight:700;margin-bottom:6px;color:var(--ink);}
+.field-error{display:block;font-size:11.5px;margin-top:5px;color:var(--red);}
+input[type=text],input[type=password],input[type=number],input[type=tel],select,textarea{
+  border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;
+  padding:10px 12px;font-size:14px;font-family:inherit;width:100%;outline:none;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(184,134,46,.15);}
+.text-center{text-align:center;}
+.muted{color:var(--ink-soft);font-size:13.5px;}
+.small-muted{color:var(--ink-soft);font-size:12px;}
+.section-title{display:flex;align-items:center;gap:8px;margin:0 0 18px;}
+.section-title h2{font-size:19px;font-weight:800;margin:0;color:var(--ink);}
+.section-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+.lock-wrap{display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:18px;}
+.lock-badge{width:52px;height:52px;border-radius:14px;background:var(--ink);display:flex;align-items:center;justify-content:center;margin-bottom:10px;}
+.lock-wrap h2{margin:0;font-size:17px;font-weight:800;}
+.alert-box{font-size:12px;border-radius:12px;padding:10px 12px;margin-top:10px;}
+.alert-box.error{background:var(--red-soft);color:var(--red);}
+.alert-box.info{background:var(--red-soft);color:var(--red);display:flex;gap:6px;align-items:flex-start;}
+.alert-box.ok{background:var(--green-soft);color:var(--green);display:flex;gap:6px;align-items:flex-start;}
+.sync-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;}
+.sync-pill.online{background:var(--green-soft);color:var(--green);}
+.sync-pill.offline{background:var(--red-soft);color:var(--red);}
+.sync-pill.connecting{background:var(--paper-alt);color:var(--ink-soft);}
+.admin-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;}
+.admin-tab{display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:999px;font-size:12px;font-weight:800;background:var(--paper-alt);color:var(--ink-soft);border:none;cursor:pointer;}
+.admin-tab.active{background:var(--ink);color:#fff;}
+.admin-row{border-radius:14px;padding:14px;background:var(--paper-alt);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.admin-row .row-main{min-width:0;flex:1;}
+.admin-row .row-title{font-weight:800;font-size:13.5px;color:var(--ink);}
+.admin-row .row-sub{font-size:12px;margin-top:4px;line-height:1.8;color:var(--ink-soft);}
+.admin-row .row-actions{display:flex;gap:6px;flex-shrink:0;}
+.stat-box{border-radius:14px;padding:14px;background:var(--paper-alt);text-align:center;}
+.stat-value{font-size:22px;font-weight:800;margin-top:8px;color:var(--ink);}
+.stat-label{font-size:12px;margin-top:4px;color:var(--ink-soft);}
+.icon-btn{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;}
+.icon-btn.danger{background:var(--red-soft);border:none;}
+.loading-wrap{min-height:60vh;display:flex;align-items:center;justify-content:center;}
+svg.ic{flex-shrink:0;}
+.option-btn{display:block;width:100%;text-align:right;border-radius:12px;padding:12px 14px;border:1px solid var(--line);background:var(--paper-alt);color:var(--ink);font-weight:700;font-size:13.5px;margin-bottom:9px;cursor:pointer;}
+.block{border-radius:14px;padding:14px;background:var(--paper-alt);}
+.block + .block{margin-top:10px;}
+.stack{display:flex;flex-direction:column;gap:10px;}
+.progress-tabs{display:flex;gap:6px;margin-bottom:22px;overflow-x:auto;padding-bottom:4px;}
+.progress-tab{flex-shrink:0;display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:999px;font-size:11.5px;font-weight:800;background:var(--paper-alt);color:var(--ink-soft);white-space:nowrap;}
+.progress-tab.active{background:var(--ink);color:#fff;}
+.progress-tab.done{background:var(--green-soft);color:var(--green);}
+.checkbox-row{display:flex;align-items:center;gap:8px;font-size:13.5px;padding:4px 0;cursor:pointer;user-select:none;}
+.checkbox-row input{width:16px;height:16px;flex-shrink:0;}
+.choice-card{text-align:right;border-radius:16px;padding:18px;border:1px solid var(--line);background:var(--paper-alt);transition:transform .12s;width:100%;cursor:pointer;}
+.choice-card:hover{transform:translateY(-2px);}
+.choice-card .title{font-weight:800;margin-top:8px;color:var(--ink);}
+.choice-card .desc{font-size:12px;margin-top:4px;color:var(--ink-soft);}
+.summary-box{border-radius:14px;padding:14px;margin-top:8px;background:var(--ink);color:#fff;}
+.summary-row{display:flex;justify-content:space-between;font-size:13.5px;}
+.summary-row + .summary-row{margin-top:4px;}
+.lead-plan{text-align:right;border-radius:12px;padding:14px;border:1px solid var(--line);background:var(--card);width:100%;cursor:pointer;}
+.lead-plan.selected{border-color:var(--gold);background:var(--paper-alt);}
+.lead-plan .p-title{font-weight:800;font-size:13.5px;color:var(--ink);}
+.lead-plan .p-dur{font-size:12px;margin-top:3px;color:var(--ink-soft);}
+.lead-plan .p-price{font-weight:800;margin-top:8px;}
+.lead-plan .p-desc{font-size:12px;margin-top:5px;line-height:1.7;color:var(--ink-soft);}
+.success-box{border-radius:14px;padding:14px;background:var(--green-soft);color:var(--green);}
+.success-box .title-row{display:flex;align-items:center;gap:8px;font-weight:700;}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap;}
+.badge-gold{background:var(--gold-light);color:#5c4109;}
+.badge-red{background:var(--red-soft);color:var(--red);}
+.badge-green{background:var(--green-soft);color:var(--green);}
+.badge-ink{background:var(--paper-alt);color:var(--ink);}
+.ad-marquee{background:linear-gradient(90deg,#1B2A45,#3a2f12,#1B2A45);color:var(--gold-light);overflow:hidden;white-space:nowrap;padding:11px 0;border-radius:12px;margin:14px 0;border:1px solid var(--gold);}
+.ad-marquee .track{display:inline-block;padding-right:100%;animation:adscroll 20s linear infinite;}
+.ad-marquee:hover .track{animation-play-state:paused;}
+@keyframes adscroll{0%{transform:translateX(0);}100%{transform:translateX(-100%);}}
+.ad-marquee .track span{padding:0 40px;font-size:14px;font-weight:800;letter-spacing:.01em;}
+.quota-pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--paper-alt);color:var(--ink-soft);margin-bottom:10px;}
+.warn-banner{font-size:12px;border-radius:12px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px;background:#FCEFD1;color:#7a5b06;margin:0 0 14px;}
+.error-banner{font-size:12px;border-radius:12px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px;background:#3a1414;color:#ffd7d0;margin:0 0 14px;}
+.disclaimer{font-size:12px;border-radius:12px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px;background:var(--red-soft);color:var(--red);margin:14px 0 4px;}
 </style>
 </head>
 <body>
-<div id="app"><div class="loading-wrap"><div class="inner"><span>⏳ در حال بارگذاری...</span></div></div></div>
+<div id="app"><div class="loading-wrap"><div class="inner">⏳ در حال بارگذاری...</div></div></div>
 
 <script>
 // ============================================================
-// 🔑 کلیدهای API JSONBin.io
+// 🔑 کلیدهای API JSONBin.io (از حساب شما)
 // ============================================================
+// این کلیدها را از پنل JSONBin.io کپی کنید
 const JSONBIN_API_KEY = '$2a$10$bVjcE37ouh10S0BtYVkSe.5e80DJC6xTOcQHzQaLpJ4dNQBUtfpHm';
 const JSONBIN_ACCESS_KEY = '$2a$10$Ee9yXX0q8b8EJLIUMBCg0.3H9os2d/5RSQy2hU.n5gv/aI.ngp052';
 
@@ -153,14 +135,15 @@ const JSONBIN_ACCESS_KEY = '$2a$10$Ee9yXX0q8b8EJLIUMBCg0.3H9os2d/5RSQy2hU.n5gv/a
 // ============================================================
 class JSONBinDB {
   constructor(apiKey, accessKey) {
-    this.apiKey = apiKey;
-    this.accessKey = accessKey;
+    this.apiKey = $2a$10$/U0840jHz55mu4ycQB4nvOxavDse85lBH36HBvjVKOFKt/DuvtN9.;
+    this.accessKey = $2a$10$PSYcTn.Tw4.RQE2C0eNCqOV6JHjgW735RgblGIXFDU945e9xr8ozO;
     this.binId = null;
     this.baseURL = 'https://api.jsonbin.io/v3';
     this.cache = {};
     this.pollingInterval = null;
     this.isPolling = false;
     this.listeners = [];
+    this.connected = false;
   }
 
   async read() {
@@ -170,15 +153,21 @@ class JSONBinDB {
     }
     try {
       const res = await fetch(`${this.baseURL}/b/${this.binId}/latest`, {
-        headers: { 'X-Master-Key': this.apiKey, 'X-Access-Key': this.accessKey, 'Content-Type': 'application/json' }
+        headers: { 
+          'X-Master-Key': this.apiKey, 
+          'X-Access-Key': this.accessKey, 
+          'Content-Type': 'application/json' 
+        }
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       this.cache = data.record;
+      this.connected = true;
       localStorage.setItem('taxapp_data', JSON.stringify(data.record));
       return data.record;
     } catch(e) {
       console.error('Read error:', e);
+      this.connected = false;
       const local = localStorage.getItem('taxapp_data');
       if (local) { this.cache = JSON.parse(local); return this.cache; }
       return null;
@@ -193,15 +182,21 @@ class JSONBinDB {
     try {
       const res = await fetch(`${this.baseURL}/b/${this.binId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-Master-Key': this.apiKey, 'X-Access-Key': this.accessKey },
+        headers: { 
+          'Content-Type': 'application/json', 
+          'X-Master-Key': this.apiKey, 
+          'X-Access-Key': this.accessKey 
+        },
         body: JSON.stringify(data)
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       this.cache = data;
+      this.connected = true;
       localStorage.setItem('taxapp_data', JSON.stringify(data));
       return true;
     } catch(e) {
       console.error('Write error:', e);
+      this.connected = false;
       localStorage.setItem('taxapp_data', JSON.stringify(data));
       return false;
     }
@@ -214,19 +209,35 @@ class JSONBinDB {
     try {
       const res = await fetch(`${this.baseURL}/b`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Master-Key': this.apiKey, 'X-Access-Key': this.accessKey },
+        headers: { 
+          'Content-Type': 'application/json', 
+          'X-Master-Key': this.apiKey, 
+          'X-Access-Key': this.accessKey 
+        },
         body: JSON.stringify(initialData)
       });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error('HTTP ' + res.status + ': ' + err);
+      }
       const result = await res.json();
       this.binId = result.metadata.id;
+      this.connected = true;
       localStorage.setItem('taxapp_bin_id', this.binId);
       localStorage.setItem('taxapp_data', JSON.stringify(initialData));
       return this.binId;
-    } catch(e) { console.error('Create bin error:', e); return null; }
+    } catch(e) {
+      console.error('Create bin error:', e);
+      this.connected = false;
+      return null;
+    }
   }
 
-  loadBinId() { const saved = localStorage.getItem('taxapp_bin_id'); if (saved) { this.binId = saved; return true; } return false; }
+  loadBinId() { 
+    const saved = localStorage.getItem('taxapp_bin_id'); 
+    if (saved) { this.binId = saved; return true; } 
+    return false; 
+  }
 
   startRealtime(callback, interval = 5000) {
     if (this.pollingInterval) clearInterval(this.pollingInterval);
@@ -245,7 +256,11 @@ class JSONBinDB {
     this.listeners.push(callback);
   }
 
-  stopRealtime() { this.isPolling = false; if (this.pollingInterval) { clearInterval(this.pollingInterval); this.pollingInterval = null; } this.listeners = []; }
+  stopRealtime() { 
+    this.isPolling = false; 
+    if (this.pollingInterval) { clearInterval(this.pollingInterval); this.pollingInterval = null; } 
+    this.listeners = []; 
+  }
 
   async backup() {
     const data = await this.read();
@@ -254,7 +269,8 @@ class JSONBinDB {
     const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `taxapp_backup_${new Date().toISOString().slice(0,10)}.json`;
+    a.href = url; 
+    a.download = `taxapp_backup_${new Date().toISOString().slice(0,10)}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
     return backupData;
@@ -266,9 +282,17 @@ class JSONBinDB {
       reader.onload = async (e) => {
         try {
           const backupData = JSON.parse(e.target.result);
-          if (!backupData.data || !backupData.version) { reject(new Error('فرمت نامعتبر')); return; }
+          if (!backupData.data || !backupData.version) { 
+            reject(new Error('فرمت فایل نامعتبر است')); 
+            return; 
+          }
           const success = await this.write(backupData.data);
-          if (success) { this.cache = backupData.data; resolve(backupData); } else { reject(new Error('خطا در بازیابی')); }
+          if (success) { 
+            this.cache = backupData.data; 
+            resolve(backupData); 
+          } else { 
+            reject(new Error('خطا در بازیابی')); 
+          }
         } catch(err) { reject(err); }
       };
       reader.onerror = () => reject(new Error('خطا در خواندن فایل'));
@@ -284,97 +308,59 @@ class JSONBinDB {
       });
       if (!res.ok) return null;
       const data = await res.json();
-      return { binId: data.metadata.id, createdAt: data.metadata.createdAt, size: data.metadata.size || 0, records: data.metadata.recordCount || 0 };
+      return { 
+        binId: data.metadata.id, 
+        createdAt: data.metadata.createdAt, 
+        size: data.metadata.size || 0, 
+        records: data.metadata.recordCount || 0 
+      };
     } catch(e) { return null; }
   }
+
+  isConnected() { return this.connected; }
 }
 
+// ============================================================
+// راه‌اندازی دیتابیس
+// ============================================================
 const db = new JSONBinDB(JSONBIN_API_KEY, JSONBIN_ACCESS_KEY);
 let dbStatus = 'connecting';
 
 // ============================================================
-// داده‌های اولیه
+// داده‌های اولیه (کاهش یافته برای تست)
 // ============================================================
 var SEED_PENALTIES = [
-  { id:"p_pelmb", title:"عدم پلمب دفاتر قانونی", description:"۲۰٪ مالیات متعلق برای هر مورد.", calcType:"percent", value:20, amnestyEligible:true, amnestyPercent:50, installmentEligible:true, maxInstallments:12, legalArticle:"م ۹۵ و ۱۹۳ ق.م.م" },
-  { id:"p_annual_haghighi", title:"عدم تسلیم اظهارنامه عملکرد (حقیقی)", description:"۱۰٪ مالیات متعلق، غیرقابل بخشودگی.", calcType:"percent", value:10, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:6, legalArticle:"م ۱۰۰ ق.م.م" },
-  { id:"p_annual_hoghughi", title:"عدم تسلیم اظهارنامه عملکرد (حقوقی)", description:"۳۰٪ مالیات متعلق، غیرقابل بخشودگی.", calcType:"percent", value:30, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:6, legalArticle:"م ۱۱۰ و ۱۹۲ ق.م.م" },
-  { id:"p_einvoice", title:"عدم صدور صورتحساب الکترونیکی", description:"۱۰٪ مجموع مبلغ فروش یا ۲۰ میلیون ریال.", calcType:"percent", value:10, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:6, legalArticle:"م ۲۲ ق.پ.ف" },
-  { id:"p_sabtnam_modian", title:"عدم ثبت‌نام در سامانه مؤدیان", description:"۱۰٪ فروش انجام‌شده یا ۲۰ میلیون ریال.", calcType:"percent", value:10, amnestyEligible:true, amnestyPercent:100, installmentEligible:true, maxInstallments:6, legalArticle:"م ۲۲ ق.پ.ف" },
-  { id:"p_hesab_tejari", title:"عدم اعلام شماره حساب‌های تجاری", description:"۱۰٪ فروش انجام‌شده از آن حساب یا ۲۰ میلیون ریال.", calcType:"percent", value:10, amnestyEligible:false, amnestyPercent:0, installmentEligible:false, maxInstallments:1, legalArticle:"م ۱۰ و ۲۲ ق.پ.ف" },
-  { id:"p_list_hoghugh", title:"عدم ارائه لیست حقوق", description:"۲٪ حقوق پرداختی و ۱۰٪ مالیات متعلق.", calcType:"percent", value:10, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:12, legalArticle:"م ۸۶ و ۱۹۷ ق.م.م" },
-  { id:"p_vat_late", title:"تأخیر در پرداخت مالیات بر ارزش افزوده", description:"۲٪ در ماه نسبت به مالیات پرداخت‌نشده.", calcType:"permonth_percent", value:2, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:6, legalArticle:"م ۳۷ ق.م.ا.ا" },
-  { id:"p_fehrest_169", title:"عدم ارسال فهرست معاملات فصلی", description:"۱٪ مبلغ معاملاتی که فهرست نشده.", calcType:"percent", value:1, amnestyEligible:true, amnestyPercent:100, installmentEligible:true, maxInstallments:6, legalArticle:"م ۱۶۹ ق.م.م" },
-  { id:"p_naghl_melk", title:"تأخیر مالیات نقل و انتقال املاک", description:"جریمه تأخیر ۲.۵٪ در ماه.", calcType:"permonth_percent", value:2.5, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:12, legalArticle:"م ۵۹ و ۸۰ ق.م.م" },
-  { id:"p_khaneh_khali", title:"جریمه واحد مسکونی خالی", description:"جریمه معادل مالیات متعلقه.", calcType:"percent", value:100, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:12, legalArticle:"م ۵۴ مکرر ق.م.م" },
-  { id:"p_negahdari_asnad", title:"عدم نگهداری اسناد و مدارک", description:"۲۰٪ مالیات متعلق.", calcType:"percent", value:20, amnestyEligible:true, amnestyPercent:50, installmentEligible:true, maxInstallments:12, legalArticle:"م ۳۴ ق.م.ا.ا" },
-  { id:"p_register", title:"عدم ثبت‌نام در نظام مالیاتی", description:"تشخیص مالیات به‌صورت علی‌الرأس.", calcType:"fixed", value:15000000, amnestyEligible:true, amnestyPercent:30, installmentEligible:true, maxInstallments:6, legalArticle:"م ۱۷۶ ق.م.م" }
+  { id:"p1", title:"عدم پلمب دفاتر", description:"۲۰٪ مالیات متعلق", calcType:"percent", value:20, amnestyEligible:true, amnestyPercent:50, installmentEligible:true, maxInstallments:12, legalArticle:"م ۹۵ ق.م.م" },
+  { id:"p2", title:"عدم تسلیم اظهارنامه", description:"۱۰٪ مالیات متعلق", calcType:"percent", value:10, amnestyEligible:false, amnestyPercent:0, installmentEligible:true, maxInstallments:6, legalArticle:"م ۱۰۰ ق.م.م" }
 ];
-
 var SEED_OBLIGATIONS = [
-  { id:"o_register", title:"ثبت‌نام در نظام مالیاتی", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"ثبت‌نام در سامانه امور مالیاتی.", deadline:"حداکثر ۲ ماه پس از شروع فعالیت", penaltyIds:["p_register"] },
-  { id:"o_pelmb", title:"پلمب دفاتر قانونی", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"پلمب دفاتر قانونی.", deadline:"قبل از شروع سال مالی جدید", penaltyIds:["p_pelmb"] },
-  { id:"o_annual_haghighi", title:"تسلیم اظهارنامه عملکرد (مشاغل)", appliesTo:["حقیقی"], fixed:true, description:"ارسال اظهارنامه سالانه.", deadline:"حداکثر تا پایان خرداد سال بعد", penaltyIds:["p_annual_haghighi"] },
-  { id:"o_annual_hoghughi", title:"تسلیم اظهارنامه عملکرد (شرکت‌ها)", appliesTo:["حقوقی"], fixed:true, description:"ارسال اظهارنامه سالانه.", deadline:"حداکثر ۴ ماه پس از پایان سال مالی", penaltyIds:["p_annual_hoghughi"] },
-  { id:"o_einvoice", title:"صدور صورتحساب الکترونیکی", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"صدور صورتحساب الکترونیکی.", deadline:"در زمان فروش", penaltyIds:["p_einvoice"] },
-  { id:"o_sabtnam_modian", title:"ثبت‌نام در سامانه مؤدیان", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"ثبت‌نام در سامانه مؤدیان.", deadline:"ظرف یک هفته از شروع فعالیت", penaltyIds:["p_sabtnam_modian"] },
-  { id:"o_hesab_tejari", title:"اعلام شماره حساب‌های تجاری", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"اعلام حساب‌های بانکی تجاری.", deadline:"همزمان با اعلام حساب", penaltyIds:["p_hesab_tejari"] },
-  { id:"o_list_hoghugh", title:"ارائه لیست حقوق", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"ارسال لیست مالیات حقوق.", deadline:"حداکثر تا پایان ماه بعد", penaltyIds:["p_list_hoghugh"] },
-  { id:"o_vat_return", title:"تسلیم اظهارنامه ارزش افزوده", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"ارسال اظهارنامه فصلی.", deadline:"حداکثر تا پایان ماه پس از دوره", penaltyIds:["p_vat_late"] },
-  { id:"o_fehrest_169", title:"ارسال فهرست معاملات فصلی", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"گزارش خرید و فروش فصلی.", deadline:"حداکثر ۴۵ روز پس از پایان فصل", penaltyIds:["p_fehrest_169"] },
-  { id:"o_naghl_melk", title:"مالیات نقل و انتقال املاک", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"پرداخت مالیات نقل و انتقال.", deadline:"در زمان ثبت سند رسمی", penaltyIds:["p_naghl_melk"] },
-  { id:"o_khaneh_khali", title:"مالیات واحدهای مسکونی خالی", appliesTo:["حقیقی"], fixed:false, description:"پرداخت مالیات واحد خالی.", deadline:"یک ماه پس از ابلاغ", penaltyIds:["p_khaneh_khali"] },
-  { id:"o_negahdari_asnad", title:"نگهداری اسناد و مدارک", appliesTo:["حقیقی","حقوقی"], fixed:true, description:"نگهداری اسناد مالی.", deadline:"حداقل ۱۰ سال", penaltyIds:["p_negahdari_asnad"] }
+  { id:"o1", title:"ثبت‌نام مالیاتی", appliesTo:["حقیقی","حقوقی"], fixed:false, description:"ثبت‌نام در سامانه", deadline:"۲ ماه پس از شروع", penaltyIds:["p1"] },
+  { id:"o2", title:"اظهارنامه عملکرد", appliesTo:["حقیقی"], fixed:true, description:"ارسال اظهارنامه", deadline:"پایان خرداد", penaltyIds:["p2"] }
 ];
-
 var SEED_QUESTIONS = [
-  { id:"q_activity", order:1, text:"آیا فعالیت اقتصادی دارید که هنوز پرونده مالیاتی ثبت نشده؟", appliesTo:["حقیقی","حقوقی"],
-    options:[ {id:"yes",label:"بله",obligationIds:["o_register"],end:false}, {id:"no",label:"خیر، ثبت‌نام کرده‌ام",obligationIds:[],end:false} ] },
-  { id:"q_modian", order:2, text:"آیا مشمول فراخوان سامانه مؤدیان و صورتحساب الکترونیکی شده‌اید؟", appliesTo:["حقیقی","حقوقی"],
-    options:[ {id:"yes",label:"بله",obligationIds:["o_sabtnam_modian","o_einvoice"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
-  { id:"q_vat", order:3, text:"آیا مشمول نظام مالیات بر ارزش افزوده هستید؟", appliesTo:["حقیقی","حقوقی"],
-    options:[ {id:"yes",label:"بله",obligationIds:["o_vat_return"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
-  { id:"q_hesab_tejari", order:4, text:"آیا حساب تجاری دارید که اعلام نکرده‌اید؟", appliesTo:["حقیقی","حقوقی"],
-    options:[ {id:"yes",label:"بله",obligationIds:["o_hesab_tejari"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
-  { id:"q_payroll", order:5, text:"آیا برای کارکنان حقوق پرداخت می‌کنید؟", appliesTo:["حقیقی","حقوقی"],
-    options:[ {id:"yes",label:"بله",obligationIds:["o_list_hoghugh"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
-  { id:"q_quarterly", order:6, text:"آیا معاملات بالای حد نصاب داشته‌اید؟", appliesTo:["حقیقی","حقوقی"],
-    options:[ {id:"yes",label:"بله",obligationIds:["o_fehrest_169"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
-  { id:"q_property", order:7, text:"آیا ملک یا حق واگذاری محل را منتقل کرده‌اید؟", appliesTo:["حقیقی","حقوقی"],
-    options:[ {id:"transfer",label:"بله، انتقال ملک",obligationIds:["o_naghl_melk"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
-  { id:"q_khaneh_khali", order:8, text:"آیا واحد مسکونی خالی در شهرهای بزرگ دارید؟", appliesTo:["حقیقی"],
-    options:[ {id:"yes",label:"بله",obligationIds:["o_khaneh_khali"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] },
-  { id:"q_books", order:9, text:"آیا ملزم به پلمب دفاتر قانونی هستید؟", appliesTo:["حقیقی","حقوقی"],
-    options:[ {id:"yes",label:"بله",obligationIds:["o_pelmb"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:false} ] }
+  { id:"q1", order:1, text:"آیا فعالیت اقتصادی دارید؟", appliesTo:["حقیقی","حقوقی"],
+    options:[ {id:"yes",label:"بله",obligationIds:["o1"],end:false}, {id:"no",label:"خیر",obligationIds:[],end:true} ] }
 ];
-
 var SEED_TEMPLATES = [
-  { id:"t_general", title:"لایحه اعتراض عمومی", body:
-"ریاست محترم امور مالیاتی\nموضوع: اعتراض به جریمه‌های مالیاتی\n\nبا سلام؛\n\nاینجانب نسبت به جریمه‌های زیر معترض هستم:\n{{penaltiesList}}\n\nجمع جرایم: {{totalRaw}}\nجمع با بخشودگی: {{totalAmnesty}}\n\nتاریخ: {{date}}" },
-  { id:"t_installment", title:"درخواست تقسیط", body:
-"ریاست محترم اداره مالیاتی\nموضوع: درخواست تقسیط\n\nبا توجه به بدهی {{totalRaw}} ناشی از:\n{{penaltiesList}}\n\nخواهشمند است با تقسیط موافقت فرمایید.\nتاریخ: {{date}}" }
+  { id:"t1", title:"لایحه اعتراض", body:"متن لایحه\n{{penaltiesList}}\n{{totalRaw}}\n{{date}}" }
 ];
-
 var SEED_PLANS = [
-  { id:"pl_free", title:"مشاوره رایگان (۵ دقیقه)", price:0, duration:"۵ دقیقه", desc:"آشنایی اولیه با پرونده." },
-  { id:"pl_standard", title:"مشاوره تخصصی", price:500000, duration:"۳۰ دقیقه", desc:"بررسی دقیق تکالیف و جرایم." },
-  { id:"pl_pro", title:"پیگیری پرونده اختصاصی", price:1000000, duration:"تا نتیجه", desc:"تنظیم لایحه و پیگیری." }
+  { id:"pl1", title:"مشاوره رایگان", price:0, duration:"۵ دقیقه", desc:"راهنمایی اولیه" },
+  { id:"pl2", title:"مشاوره تخصصی", price:500000, duration:"۳۰ دقیقه", desc:"بررسی دقیق" }
 ];
-
 var SEED_META = {
-  brandName:"دستیار تکالیف مالیاتی",
-  tagline:"تکالیف، جرایم و بخشودگی‌های مالیاتی",
+  brandName:"دستیار مالیاتی",
+  tagline:"تکالیف و جرایم مالیاتی",
   phone:"021-00000000",
   whatsapp:"",
-  notifyEmail:"project14001410@gmail.com",
+  notifyEmail:"project1401410@gmail.com",
   adminPassword:"123456",
   defaultLicenseEnabled:true,
   defaultLicenseCode:"123",
-  adText:"🔥 مشاوره تخصصی مالیاتی — تماس بگیرید ☎ 021-00000000",
+  adText:"🔥 مشاوره تخصصی مالیاتی",
   adEnabled:true,
   freeQueryLimit:3
 };
-
 var LEAD_STATUSES = ["جدید","در حال پیگیری","نهایی‌شده","بی‌پاسخ"];
 var LICENSE_DURATIONS = [{months:1,label:"۱ ماهه"},{months:6,label:"۶ ماهه"},{months:12,label:"۱۲ ماهه"}];
 
@@ -522,7 +508,7 @@ var S = {
 };
 
 // ============================================================
-// توابع رندر
+// رندرینگ
 // ============================================================
 function render(){
   document.getElementById('app').innerHTML = renderApp();
@@ -538,15 +524,16 @@ function renderApp(){
 }
 
 function renderSyncPill(){
-  var label = dbStatus==='online' ? '🟢 متصل به سرور' : (dbStatus==='connecting' ? '🔄 در حال اتصال...' : '🔴 آفلاین (محلی)');
-  var cls = dbStatus==='online' ? 'online' : (dbStatus==='connecting' ? 'connecting' : 'offline');
+  var connected = db.isConnected();
+  var label = connected ? '🟢 متصل' : (dbStatus==='connecting' ? '🔄 اتصال...' : '🔴 آفلاین');
+  var cls = connected ? 'online' : (dbStatus==='connecting' ? 'connecting' : 'offline');
   return '<span class="sync-pill '+cls+'">'+ic('wifi',12)+'<span>'+label+'</span></span>';
 }
 
 function renderHeader(){
   var meta = DB.meta;
   var actions = '';
-  if(S.route==='admin' && S.adminAuthed) actions = renderSyncPill() + '<button class="btn btn-ghost" onclick="logoutAdmin()">'+ic('logout',15)+'<span>خروج</span></button>';
+  if(S.route==='admin' && S.adminAuthed) actions = renderSyncPill() + '<button class="btn btn-ghost btn-sm" onclick="logoutAdmin()">'+ic('logout',14)+' خروج</button>';
   return '<div class="site-header"><div class="container inner"><div class="brand"><div class="brand-badge">'+ic('shield',22,'#E7C878')+'</div><div><div class="brand-name">'+esc(meta.brandName)+'</div><div class="brand-tagline">'+esc(meta.tagline)+'</div></div></div><div class="header-actions">'+actions+'</div></div></div>';
 }
 
@@ -557,13 +544,12 @@ function renderAdMarquee(){
 }
 
 function renderDisclaimer(){
-  var err = dbStatus==='error' ? '<div class="error-banner">'+ic('alert',15)+'<span>خطا در ارتباط با سرور. داده‌ها محلی ذخیره می‌شوند.</span></div>' : '';
-  var warn = !DB.meta.notifyEmail ? '<div class="warn-banner">'+ic('alert',15)+'<span>ایمیل در تنظیمات وارد نشده است.</span></div>' : '';
-  return '<div class="disclaimer">'+ic('alert',15)+'<span>نسخه نمایشی — محتوای مالیاتی باید توسط کارشناس بازبینی شود.</span></div>'+err+warn+(S.route==='user'?renderAdMarquee():'');
+  var err = (!db.isConnected() && dbStatus!=='connecting') ? '<div class="error-banner">'+ic('alert',15)+'<span>⚠️ در حالت آفلاین هستید. تغییرات فقط در همین مرورگر ذخیره می‌شود.</span></div>' : '';
+  return '<div class="disclaimer">'+ic('alert',15)+'<span>نسخه نمایشی — محتوای مالیاتی باید توسط کارشناس بازبینی شود.</span></div>'+err+(S.route==='user'?renderAdMarquee():'');
 }
 
 function renderFooter(){
-  return '<div class="site-footer"><div class="container inner">© '+(new Date().getFullYear())+' '+esc(DB.meta.brandName)+' — تمامی حقوق محفوظ است.</div></div>';
+  return '<div class="site-footer" style="padding:24px 0;text-align:center;font-size:12px;color:var(--ink-soft);border-top:1px solid var(--line);margin-top:20px;">© '+(new Date().getFullYear())+' '+esc(DB.meta.brandName)+'</div>';
 }
 
 function goUser(){ S.route='user'; window.location.hash=''; render(); window.scrollTo(0,0); }
@@ -614,7 +600,7 @@ function restoreAuthSession(){ var p=lsGet('auth_phone'); if(p) S.authPhone=p; }
 function currentUserRecord(){ return DB.users[S.authPhone]||null; }
 
 // ============================================================
-// ویزارد کاربر
+// ویزارد کاربر (ساده شده)
 // ============================================================
 function orderedQuestionsFor(pt){ return DB.questions.filter(function(q){ return !q.appliesTo || q.appliesTo.indexOf(pt)!==-1; }).slice().sort(function(a,b){ return (a.order||0)-(b.order||0); }); }
 function currentQuestion(){ var qs=orderedQuestionsFor(S.wiz.personType); return qs.filter(function(q){ return q.id===S.wiz.qId; })[0]||null; }
@@ -642,15 +628,14 @@ function submitLead(){ var nameEl=document.getElementById('leadNameInput'), phon
 function selectPlan(id){ S.wiz.lead.planId=id; render(); }
 function restartWizard(){ S.wiz={step:'intro', personType:null, qId:null, answers:{}, selected:{}, templateId:null, layehaText:'', lead:{name:'', phone:'', note:'', planId:(DB.plans[0]&&DB.plans[0].id)||null}, leadSent:false, sendStatus:'idle', licenseInput:'', licenseError:'', licenseFailCount:0, licenseLockUntil:0, copyMsg:''}; render(); window.scrollTo(0,0); }
 
-// سهمیه رایگان
 function remainingFreeQueries(){ var u=currentUserRecord(); var used=u?(u.queryCount||0):0; var limit=(DB.meta.freeQueryLimit!=null)?DB.meta.freeQueryLimit:3; return Math.max(0,limit-used); }
 function hasQuotaOrLicense(){ return remainingFreeQueries()>0 || isLicenseVerified(); }
 function registerQueryUsage(){ if(isLicenseVerified()) return; var u=currentUserRecord(); if(!u) return; u.queryCount=(u.queryCount||0)+1; saveDB('users'); }
-function submitQuotaLicense(){ var el=document.getElementById('quotaLicenseInput'); var code=el?el.value.trim():''; if(checkLicense(code)){ setLicenseVerified(code); DB.licenseLogs.push({code:code, at:new Date().toISOString()}); saveDB('licenseLogs'); S.wiz.licenseError=''; S.wiz.step='intro'; } else { S.wiz.licenseError='کد نامعتبر یا منقضی شده.'; } render(); }
-function submitLicense(){ if(S.wiz.licenseLockUntil>Date.now()){ render(); return; } var el=document.getElementById('licenseInputEl'); var code=el?el.value.trim():''; if(checkLicense(code)){ setLicenseVerified(code); DB.licenseLogs.push({code:code, at:new Date().toISOString()}); if(DB.licenseLogs.length>500) DB.licenseLogs=DB.licenseLogs.slice(-500); saveDB('licenseLogs'); S.wiz.licenseError=''; S.wiz.licenseFailCount=0; S.wiz.step='penalties'; } else { S.wiz.licenseFailCount=(S.wiz.licenseFailCount||0)+1; if(S.wiz.licenseFailCount>=5){ S.wiz.licenseLockUntil=Date.now()+20000; S.wiz.licenseError='تلاش زیاد. ۲۰ ثانیه صبر کنید.'; S.wiz.licenseFailCount=0; scheduleLicenseUnlockTick(); } else { S.wiz.licenseError='کد نامعتبر یا منقضی شده.'; } } render(); }
+function submitQuotaLicense(){ var el=document.getElementById('quotaLicenseInput'); var code=el?el.value.trim():''; if(checkLicense(code)){ setLicenseVerified(code); DB.licenseLogs.push({code:code, at:new Date().toISOString()}); saveDB('licenseLogs'); S.wiz.licenseError=''; S.wiz.step='intro'; } else { S.wiz.licenseError='کد نامعتبر است.'; } render(); }
+function submitLicense(){ if(S.wiz.licenseLockUntil>Date.now()){ render(); return; } var el=document.getElementById('licenseInputEl'); var code=el?el.value.trim():''; if(checkLicense(code)){ setLicenseVerified(code); DB.licenseLogs.push({code:code, at:new Date().toISOString()}); if(DB.licenseLogs.length>500) DB.licenseLogs=DB.licenseLogs.slice(-500); saveDB('licenseLogs'); S.wiz.licenseError=''; S.wiz.licenseFailCount=0; S.wiz.step='penalties'; } else { S.wiz.licenseFailCount=(S.wiz.licenseFailCount||0)+1; if(S.wiz.licenseFailCount>=5){ S.wiz.licenseLockUntil=Date.now()+20000; S.wiz.licenseError='تلاش زیاد. ۲۰ ثانیه صبر کنید.'; S.wiz.licenseFailCount=0; scheduleLicenseUnlockTick(); } else { S.wiz.licenseError='کد نامعتبر است.'; } } render(); }
 function scheduleLicenseUnlockTick(){ setTimeout(function(){ if(S.wiz.step==='license') render(); if(S.wiz.licenseLockUntil>Date.now()) scheduleLicenseUnlockTick(); },1000); }
 
-// رندر گام‌های ویزارد
+// رندر گام‌ها
 var WIZ_STEPS=["intro","questions","obligations","penalties","calc","layeha","consult"];
 var WIZ_LABELS=["سوالات","تکالیف شما","انتخاب جرایم","محاسبه","نمونه لایحه","مشاوره"];
 function renderProgressTabs(){
@@ -680,13 +665,13 @@ function renderUserWizard(){
 
 function renderStepIntro(){
   var u=currentUserRecord(), remain=remainingFreeQueries();
-  var quotaLine=isLicenseVerified()?'<span class="quota-pill">'+ic('shield',12)+'<span>اشتراک فعال</span></span>':'<span class="quota-pill">'+ic('info',12)+'<span>'+toFa(remain)+' استعلام رایگان</span></span>';
-  return '<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">'+quotaLine+(u?'<button class="btn btn-ghost btn-sm" onclick="logoutUser()">'+ic('logout',13)+'<span>خروج ('+esc(u.name)+')</span></button>':'')+'</div><div class="section-eyebrow">گام اول</div><div class="section-title"><h2>نوع مؤدی خود را انتخاب کنید</h2></div><p class="muted" style="margin-bottom:20px;">بر اساس نوع مخاطب، سوالات و تکالیف متفاوتی نمایش داده می‌شود.</p><div class="grid2"><button class="choice-card" onclick="startWizard(\'حقیقی\')">'+ic('users',26,'#B8862E')+'<div class="title">شخص حقیقی</div><div class="desc">صاحبان مشاغل، فریلنسرها</div></button><button class="choice-card" onclick="startWizard(\'حقوقی\')">'+ic('shield',26,'#B8862E')+'<div class="title">شخص حقوقی</div><div class="desc">شرکت‌ها و مؤسسات</div></button></div></div>';
+  var quotaLine=isLicenseVerified()?'<span class="quota-pill">'+ic('shield',12)+' اشتراک فعال</span>':'<span class="quota-pill">'+ic('info',12)+' '+toFa(remain)+' استعلام رایگان</span>';
+  return '<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">'+quotaLine+(u?'<button class="btn btn-ghost btn-sm" onclick="logoutUser()">'+ic('logout',13)+' خروج ('+esc(u.name)+')</button>':'')+'</div><div class="section-eyebrow">گام اول</div><div class="section-title"><h2>نوع مؤدی خود را انتخاب کنید</h2></div><p class="muted" style="margin-bottom:20px;">بر اساس نوع مخاطب، سوالات و تکالیف متفاوتی نمایش داده می‌شود.</p><div class="grid2"><button class="choice-card" onclick="startWizard(\'حقیقی\')">'+ic('users',26,'#B8862E')+'<div class="title">شخص حقیقی</div><div class="desc">صاحبان مشاغل، فریلنسرها</div></button><button class="choice-card" onclick="startWizard(\'حقوقی\')">'+ic('shield',26,'#B8862E')+'<div class="title">شخص حقوقی</div><div class="desc">شرکت‌ها و مؤسسات</div></button></div></div>';
 }
 
 function renderQuotaGate(){
   var m=DB.meta;
-  return '<div class="card narrow"><div class="lock-wrap"><div class="lock-badge">'+ic('lock',22,'#E7C878')+'</div><h2>سقف استعلام تمام شد</h2><p>سهمیه '+toFa(m.freeQueryLimit!=null?m.freeQueryLimit:3)+' استعلام استفاده شد. کد لایسنس را وارد کنید.</p></div><label class="field"><span class="field-label">کد لایسنس</span><input type="text" id="quotaLicenseInput" placeholder="کد لایسنس" onkeydown="if(event.key===\'Enter\')submitQuotaLicense();" /></label>'+(S.wiz.licenseError?'<div class="field-error">'+esc(S.wiz.licenseError)+'</div>':'')+'<div class="btn-row start"><button class="btn btn-gold" onclick="submitQuotaLicense()">'+ic('key',15)+'<span>تأیید</span></button>'+(m.phone?'<a class="btn btn-primary" href="tel:'+esc(m.phone)+'">'+ic('phone',15)+'<span>تماس</span></a>':'')+(m.whatsapp?'<a class="btn btn-ghost" href="https://wa.me/'+esc(m.whatsapp)+'" target="_blank">'+ic('whatsapp',15)+'<span>واتس‌اپ</span></a>':'')+'</div></div>';
+  return '<div class="card narrow"><div class="lock-wrap"><div class="lock-badge">'+ic('lock',22,'#E7C878')+'</div><h2>سقف استعلام تمام شد</h2><p>سهمیه '+toFa(m.freeQueryLimit!=null?m.freeQueryLimit:3)+' استعلام استفاده شد.</p></div><label class="field"><span class="field-label">کد لایسنس</span><input type="text" id="quotaLicenseInput" placeholder="کد لایسنس" onkeydown="if(event.key===\'Enter\')submitQuotaLicense();" /></label>'+(S.wiz.licenseError?'<div class="field-error">'+esc(S.wiz.licenseError)+'</div>':'')+'<div class="btn-row start"><button class="btn btn-gold" onclick="submitQuotaLicense()">'+ic('key',15)+'<span>تأیید</span></button></div></div>';
 }
 
 function renderLicenseGateStep(){
@@ -715,7 +700,7 @@ function renderStepPenalties(){
 
 function renderStepCalc(){
   var sel=selectedPenalties();
-  var body=sel.length===0?'<p class="muted">هیچ جریمه‌ای انتخاب نشده است.</p>':'<div class="stack">'+sel.map(function(p){ var amt=calcAmount(p,S.wiz.selected[p.id]); var discounted=p.amnestyEligible?amt*(1-p.amnestyPercent/100):amt; return '<div class="block"><div style="font-weight:800;font-size:13.5px;margin-bottom:4px;">'+esc(p.title)+' <span class="small-muted">('+esc(p.legalArticle||'')+')</span></div><div style="font-weight:800;font-size:13.5px;color:var(--red);">مبلغ: '+toman(amt)+'</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">'+(p.amnestyEligible?'<span class="badge badge-green">بخشودگی تا '+toFa(p.amnestyPercent)+'٪ → '+toman(discounted)+'</span>':'<span class="badge badge-ink">غیرقابل بخشودگی</span>')+(p.installmentEligible?'<span class="badge badge-gold">تقسیط تا '+toFa(p.maxInstallments)+' قسط — هر قسط '+toman(amt/p.maxInstallments)+'</span>':'<span class="badge badge-ink">غیرقابل تقسیط</span>')+'</div></div>'; }).join('')+'<div class="summary-box"><div class="summary-row"><span>جمع کل</span><span>'+toman(totalRawAmount())+'</span></div><div class="summary-row"><span>با بخشودگی</span><span style="color:var(--gold-light);">'+toman(totalAmnestyAmount())+'</span></div></div><div style="display:flex;align-items:flex-start;gap:6px;font-size:12px;color:var(--ink-soft);margin-top:4px;">'+ic('info',14)+'<span>ارقام برآوردی هستند.</span></div></div>';
+  var body=sel.length===0?'<p class="muted">هیچ جریمه‌ای انتخاب نشده است.</p>':'<div class="stack">'+sel.map(function(p){ var amt=calcAmount(p,S.wiz.selected[p.id]); var discounted=p.amnestyEligible?amt*(1-p.amnestyPercent/100):amt; return '<div class="block"><div style="font-weight:800;font-size:13.5px;margin-bottom:4px;">'+esc(p.title)+' <span class="small-muted">('+esc(p.legalArticle||'')+')</span></div><div style="font-weight:800;font-size:13.5px;color:var(--red);">مبلغ: '+toman(amt)+'</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">'+(p.amnestyEligible?'<span class="badge badge-green">بخشودگی تا '+toFa(p.amnestyPercent)+'٪ → '+toman(discounted)+'</span>':'<span class="badge badge-ink">غیرقابل بخشودگی</span>')+(p.installmentEligible?'<span class="badge badge-gold">تقسیط تا '+toFa(p.maxInstallments)+' قسط</span>':'<span class="badge badge-ink">غیرقابل تقسیط</span>')+'</div></div>'; }).join('')+'<div class="summary-box"><div class="summary-row"><span>جمع کل</span><span>'+toman(totalRawAmount())+'</span></div><div class="summary-row"><span>با بخشودگی</span><span style="color:var(--gold-light);">'+toman(totalAmnestyAmount())+'</span></div></div><div style="display:flex;align-items:flex-start;gap:6px;font-size:12px;color:var(--ink-soft);margin-top:4px;">'+ic('info',14)+'<span>ارقام برآوردی هستند.</span></div></div>';
   return '<div class="card"><div class="section-eyebrow">گام چهارم</div><div class="section-title"><h2>جمع‌بندی جرایم</h2></div>'+body+'<div class="btn-row"><button class="btn btn-ghost" onclick="goStep(\'penalties\')">'+ic('right',15)+'<span>بازگشت</span></button><button class="btn btn-primary" onclick="onEnterLayeha()"><span>مرحله بعد: لایحه</span>'+ic('left',15)+'</button></div></div>';
 }
 
@@ -728,7 +713,7 @@ function renderStepConsult(){
   var meta=DB.meta;
   var plansHtml=DB.plans.map(function(pl){ var selected=S.wiz.lead.planId===pl.id; return '<button class="lead-plan '+(selected?'selected':'')+'" onclick="selectPlan(\''+pl.id+'\')"><div class="p-title">'+esc(pl.title)+'</div><div class="p-dur">'+esc(pl.duration)+'</div><div class="p-price" style="color:'+(pl.price===0?'var(--green)':'var(--gold)')+';">'+(pl.price===0?'رایگان':toman(pl.price))+'</div><div class="p-desc">'+esc(pl.desc)+'</div></button>'; }).join('');
   var phoneValid=IRAN_MOBILE_RE.test((S.wiz.lead.phone||'').trim());
-  var formOrSuccess = S.wiz.leadSent ? '<div class="success-box"><div class="title-row">'+ic('check',18)+'<span>درخواست ثبت شد. کارشناسان تماس می‌گیرند.</span></div><div class="small-muted" style="margin-top:8px;">'+(S.wiz.sendStatus==='sending'?'در حال ارسال...':(S.wiz.sendStatus==='sent'?'✅ ارسال شد':'⚠️ خطا در ارسال ایمیل'))+'</div></div>' :
+  var formOrSuccess = S.wiz.leadSent ? '<div class="success-box"><div class="title-row">'+ic('check',18)+'<span>درخواست ثبت شد.</span></div><div class="small-muted">'+(S.wiz.sendStatus==='sending'?'در حال ارسال...':(S.wiz.sendStatus==='sent'?'✅ ارسال شد':'⚠️ خطا'))+'</div></div>' :
     '<div class="grid2"><label class="field"><span class="field-label">نام و نام خانوادگی</span><input type="text" id="leadNameInput" value="'+esc(S.wiz.lead.name)+'" oninput="S.wiz.lead.name=this.value" placeholder="علی احمدی" /></label><label class="field"><span class="field-label">شماره تماس</span><input type="tel" id="leadPhoneInput" value="'+esc(S.wiz.lead.phone)+'" oninput="S.wiz.lead.phone=this.value" placeholder="09xxxxxxxxx" />'+(S.wiz.lead.phone && !phoneValid?'<span class="field-hint" style="color:var(--red);">شماره معتبر نیست</span>':'')+'</label><div class="col-span-2"><label class="field"><span class="field-label">توضیح (اختیاری)</span><textarea id="leadNoteInput" rows="2" oninput="S.wiz.lead.note=this.value">'+esc(S.wiz.lead.note)+'</textarea></label></div><div class="col-span-2"><button class="btn btn-gold" '+((!S.wiz.lead.name || !phoneValid || S.wiz.sendStatus==='sending')?'disabled':'')+' onclick="submitLead()">'+ic('phone',15)+'<span>'+(S.wiz.sendStatus==='sending'?'در حال ارسال...':'درخواست تماس')+'</span></button></div></div>';
   return '<div class="card"><div class="section-eyebrow">گام پایانی</div><div class="section-title"><h2>مشاوره تلفنی</h2></div><div class="block" style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:20px;"><div style="display:flex;align-items:center;gap:10px;">'+ic('phone',22,'var(--gold)')+'<div><div class="small-muted">تماس فوری</div><div style="font-weight:800;font-size:16px;">'+esc(meta.phone)+'</div></div></div>'+(meta.whatsapp?'<a href="https://wa.me/'+meta.whatsapp.replace(/\D/g,'')+'" target="_blank" class="btn" style="background:var(--green-soft);color:var(--green);">'+ic('whatsapp',15)+'<span>واتس‌اپ</span></a>':'')+'</div><div class="grid3" style="margin-bottom:20px;">'+plansHtml+'</div>'+formOrSuccess+'<div class="btn-row"><button class="btn btn-ghost" onclick="goStep(\'layeha\')">'+ic('right',15)+'<span>بازگشت</span></button><button class="btn btn-ghost" onclick="restartWizard()"><span>شروع دوباره</span>'+ic('left',15)+'</button></div></div>';
 }
@@ -777,7 +762,6 @@ function renderDashboardAdmin(){
   return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>📊 داشبورد</h2></div>'+renderSyncPill()+'</div><div class="grid4"><div class="stat-box">'+ic('users',17,'var(--gold)')+'<div class="stat-value">'+toFa(usersCount)+'</div><div class="stat-label">کاربران</div></div><div class="stat-box">'+ic('inbox',17,'var(--gold)')+'<div class="stat-value">'+toFa(total)+'</div><div class="stat-label">درخواست‌ها</div></div><div class="stat-box">'+ic('check',17,'var(--gold)')+'<div class="stat-value">'+toFa(newCount)+'</div><div class="stat-label">جدید</div></div><div class="stat-box">'+ic('key',17,'var(--gold)')+'<div class="stat-value">'+toFa(licenseCount)+'</div><div class="stat-label">لایسنس</div></div></div></div>';
 }
 
-// کاربران
 function renderUsersAdmin(){
   var keys=Object.keys(DB.users||{}), limit=(DB.meta.freeQueryLimit!=null)?DB.meta.freeQueryLimit:3;
   var rows=keys.map(function(k){ var u=DB.users[k]; var used=u.queryCount||0; return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(u.name)+' — '+esc(u.phone)+'</div><div class="row-sub">استعلام: '+toFa(used)+' از '+toFa(limit)+' — ثبت: '+new Date(u.createdAt).toLocaleDateString('fa-IR')+'</div></div><div class="row-actions"><button class="icon-btn" onclick="resetUserQuota(\''+k+'\')">'+ic('refresh',14)+'</button></div></div>'; }).join('');
@@ -785,7 +769,6 @@ function renderUsersAdmin(){
 }
 function resetUserQuota(key){ if(!DB.users[key]) return; DB.users[key].queryCount=0; saveDB('users'); render(); }
 
-// سوالات (CRUD)
 function renderQuestionsAdmin(){
   var formHtml='';
   if(S.formType==='question'){
@@ -802,7 +785,6 @@ function toggleQOptionEnd(idx, checked){ S.form.options[idx].end=checked; render
 function addQOption(){ S.form.options.push({id:genId('opt'), label:'', obligationIds:[], end:false}); render(); }
 function removeQOption(idx){ S.form.options=S.form.options.filter(function(_,i){return i!==idx;}); render(); }
 
-// تکالیف، جرایم، لوایح، بسته‌ها (ساده شده)
 function renderObligationsAdmin(){
   var formHtml='';
   if(S.formType==='obligation'){
@@ -843,7 +825,6 @@ function renderPlansAdmin(){
   return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>📦 بسته‌های مشاوره</h2></div>'+(S.formType==='plan'?'':'<button class="btn btn-primary btn-sm" onclick="openAddForm(\'plan\')">'+ic('plus',13)+'<span>جدید</span></button>')+'</div>'+formHtml+'<div class="stack">'+(list||'<p class="muted">بسته‌ای ثبت نشده است.</p>')+'</div></div>';
 }
 
-// درخواست‌ها
 function renderLeadsAdmin(){
   var q=(S.leadsQuery||'').trim();
   var filtered=DB.leads.filter(function(l){ return !q || (l.name&&l.name.indexOf(q)!==-1) || (l.phone&&l.phone.indexOf(q)!==-1); });
@@ -855,7 +836,6 @@ function deleteLead(id){ if(!confirm('حذف شود؟')) return; DB.leads=DB.lea
 function onLeadsQueryInput(v){ S.leadsQuery=v; render(); }
 function exportLeadsCSV(){ var header=['نام','شماره','نوع مؤدی','بسته','جرایم','وضعیت','توضیحات','تاریخ']; var rows=DB.leads.map(function(l){ return [l.name,l.phone,l.personType||'',l.planTitle||'',l.totalRaw||0,l.status||'جدید',(l.note||'').replace(/\n/g,' '),l.createdAt]; }); var csv=[header].concat(rows).map(function(r){ return r.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(','); }).join('\r\n'); var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}); var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download='leads.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
 
-// لایسنس‌ها
 function renderLicensesAdmin(){
   var now=Date.now();
   var licenseRows=DB.licenses.map(function(l){ var expired=l.expiresAt && new Date(l.expiresAt).getTime()<now; var statusBadge=expired?'<span class="badge badge-red">منقضی</span>':'<span class="badge badge-green">فعال</span>'; var durLabel=(LICENSE_DURATIONS.filter(function(d){return d.months===l.durationMonths;})[0]||{}).label||(toFa(l.durationMonths||0)+' ماهه'); var sub=(l.note?esc(l.note)+' — ':'')+durLabel+' — ثبت: '+new Date(l.createdAt).toLocaleDateString('fa-IR')+(l.expiresAt?(' — انقضا: '+new Date(l.expiresAt).toLocaleDateString('fa-IR')):'')+' '+statusBadge; return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(l.code)+'</div><div class="row-sub">'+sub+'</div></div><div class="row-actions"><button class="icon-btn danger" onclick="deleteLicense(\''+l.code+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>'; }).join('');
@@ -873,7 +853,6 @@ function saveDefaultLicenseCode(){ var el=document.getElementById('defaultLicens
 function resetLocalLicenseVerification(){ clearLicenseVerified(); alert('تأیید لایسنس پاک شد.'); }
 function clearLicenseLogs(){ if(!confirm('پاک شود؟')) return; DB.licenseLogs=[]; saveDB('licenseLogs'); render(); }
 
-// پشتیبان‌گیری
 function renderBackupAdmin(){
   return '<div class="card"><div class="section-title tight"><h2>📦 پشتیبان‌گیری</h2></div><p class="muted" style="margin:8px 0 16px;">دانلود یا بازیابی داده‌ها</p><div class="grid2"><div class="block"><div style="font-weight:800;font-size:15px;margin-bottom:8px;">⬇️ دریافت</div><button class="btn btn-gold" onclick="doBackup()">'+ic('download',15)+' <span>دانلود</span></button>'+(S.backupMsg?'<div class="success-banner" style="margin-top:8px;">'+ic('check',14)+' <span>'+esc(S.backupMsg)+'</span></div>':'')+'</div><div class="block"><div style="font-weight:800;font-size:15px;margin-bottom:8px;">⬆️ بازیابی</div><input type="file" id="restoreFileInput" accept=".json" style="margin-bottom:8px;" /><button class="btn btn-primary" onclick="doRestore()">'+ic('restore',15)+' <span>بازیابی</span></button>'+(S.restoreMsg?'<div class="'+(S.restoreMsg.includes('خطا')?'error-banner':'success-banner')+'" style="margin-top:8px;">'+ic('alert',14)+' <span>'+esc(S.restoreMsg)+'</span></div>':'')+'</div></div><div class="backup-box"><div style="font-weight:700;font-size:13px;margin-bottom:6px;">ℹ️ دیتابیس</div><div class="small-muted">'+(S.dbStats?'🆔 '+esc(S.dbStats.binId)+'<br/>📅 '+new Date(S.dbStats.createdAt).toLocaleString('fa-IR')+'<br/>📊 '+(S.dbStats.size/1024).toFixed(1)+' KB<br/>📝 '+toFa(S.dbStats.records)+' رکورد':'در حال دریافت...')+'</div><button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="refreshStats()">'+ic('refresh',13)+' به‌روزرسانی</button></div><div class="alert-box info">⚠️ بازیابی همه داده‌ها را بازنویسی می‌کند.</div></div>';
 }
@@ -882,14 +861,12 @@ async function doBackup(){ try { S.backupMsg='در حال...'; render(); var res
 async function doRestore(){ var fileInput=document.getElementById('restoreFileInput'); if(!fileInput||!fileInput.files||fileInput.files.length===0){ S.restoreMsg='⚠️ فایل انتخاب کنید.'; render(); return; } if(!confirm('داده‌ها بازنویسی می‌شوند. ادامه؟')) return; try { S.restoreMsg='در حال...'; render(); var result=await db.restore(fileInput.files[0]); if(result&&result.data){ Object.keys(result.data).forEach(function(key){ if(DB[key]!==undefined){ DB[key]=result.data[key]; lsSet(key,result.data[key]); } }); S.restoreMsg='✅ بازیابی شد!'; setTimeout(function(){ window.location.reload(); },1500); } else { S.restoreMsg='❌ خطا'; } } catch(e){ S.restoreMsg='❌ خطا: '+e.message; } render(); setTimeout(function(){ S.restoreMsg=''; render(); },4000); }
 async function refreshStats(){ S.dbStats=await db.getStats(); render(); }
 
-// تنظیمات
 function renderSettingsAdmin(){
   var m=DB.meta, adminUrl=window.location.origin+window.location.pathname+'#'+ADMIN_SECRET, userUrl=window.location.origin+window.location.pathname;
   return '<div class="card"><div class="section-title tight"><h2>⚙️ تنظیمات</h2></div><div class="alert-box info">🔗 مدیریت: <code class="tpl-var">'+esc(adminUrl)+'</code></div><div class="alert-box ok">👤 کاربران: <code class="tpl-var">'+esc(userUrl)+'</code></div><div style="margin-top:14px;"><label class="field"><span class="field-label">نام برند</span><input type="text" id="brandNameInput" value="'+esc(m.brandName)+'" /></label><label class="field"><span class="field-label">شعار</span><input type="text" id="taglineInput" value="'+esc(m.tagline)+'" /></label><label class="field"><span class="field-label">شماره تماس</span><input type="text" id="phoneInput" value="'+esc(m.phone)+'" /></label><label class="field"><span class="field-label">واتس‌اپ</span><input type="text" id="whatsappInput" value="'+esc(m.whatsapp||'')+'" placeholder="989121234567" /></label><label class="field"><span class="field-label">ایمیل</span><input type="text" id="notifyEmailInput" value="'+esc(m.notifyEmail||'')+'" /></label><label class="field"><span class="field-label">رمز مدیریت</span><input type="password" id="adminPasswordInput" value="'+esc(m.adminPassword||'')+'" /></label><label class="field"><span class="field-label">استعلام رایگان</span><input type="number" id="freeQueryLimitInput" value="'+esc(m.freeQueryLimit!=null?m.freeQueryLimit:3)+'" min="0" /></label><label class="field"><span class="field-label">متن تبلیغاتی</span><textarea id="adTextInput" rows="2">'+esc(m.adText||'')+'</textarea></label><label class="checkbox-row"><input type="checkbox" id="adEnabledInput" '+(m.adEnabled!==false?'checked':'')+' /><span>نمایش تبلیغات</span></label><div class="btn-row start"><button class="btn btn-primary" onclick="saveSettings()">ذخیره</button>'+(S.settingsSaved?'<span class="small-muted" style="color:var(--green);">✅ ذخیره شد</span>':'')+'</div></div></div>';
 }
 function saveSettings(){ var ids=['brandNameInput','taglineInput','phoneInput','whatsappInput','notifyEmailInput','adminPasswordInput','adTextInput','freeQueryLimitInput']; var vals={}; ids.forEach(function(id){ var el=document.getElementById(id); if(el) vals[id]=el.value; }); DB.meta.brandName=vals.brandNameInput||DB.meta.brandName; DB.meta.tagline=vals.taglineInput||''; DB.meta.phone=vals.phoneInput||''; DB.meta.whatsapp=vals.whatsappInput||''; DB.meta.notifyEmail=vals.notifyEmailInput||''; DB.meta.adminPassword=vals.adminPasswordInput||'123456'; DB.meta.adText=vals.adTextInput||''; DB.meta.freeQueryLimit=Math.max(0,parseInt(vals.freeQueryLimitInput,10)||0); var adEl=document.getElementById('adEnabledInput'); DB.meta.adEnabled=adEl?adEl.checked:true; saveDB('meta'); S.settingsSaved=true; render(); setTimeout(function(){ S.settingsSaved=false; render(); },1800); }
 
-// راهنما
 function renderGuideAdmin(){
   return '<div class="card"><div class="section-title tight"><h2>📖 راهنما</h2></div><div class="block"><div style="font-weight:800;">۱. تنظیم JSONBin.io</div><div class="small-muted">کلیدهای API در ابتدای کد تنظیم شده‌اند.</div></div><div class="block"><div style="font-weight:800;">۲. استقرار روی GitHub Pages</div><div class="small-muted">فایل index.html را در ریپازیتوری آپلود کنید. Settings → Pages → main branch</div></div><div class="block"><div style="font-weight:800;">۳. لینک‌ها</div><div class="small-muted">مدیریت: <code class="tpl-var">#'+ADMIN_SECRET+'</code><br/>کاربران: آدرس اصلی</div></div><div class="block"><div style="font-weight:800;">۴. رمز پیش‌فرض</div><div class="small-muted">123456 — قابل تغییر در تنظیمات</div></div></div>';
 }
@@ -929,18 +906,72 @@ async function boot(){
   try {
     dbStatus='connecting';
     render();
+    
+    // بررسی آیا Bin ID وجود دارد
     if(!db.loadBinId()){
-      var initialData={ questions:DB.questions, obligations:DB.obligations, penalties:DB.penalties, templates:DB.templates, plans:DB.plans, meta:DB.meta, leads:DB.leads, licenses:DB.licenses, licenseLogs:DB.licenseLogs, users:DB.users };
-      var binId=await db.createBin(initialData);
-      dbStatus=binId?'online':'offline';
+      // ایجاد Bin جدید
+      var initialData={ 
+        questions:DB.questions, 
+        obligations:DB.obligations, 
+        penalties:DB.penalties, 
+        templates:DB.templates, 
+        plans:DB.plans, 
+        meta:DB.meta, 
+        leads:DB.leads, 
+        licenses:DB.licenses, 
+        licenseLogs:DB.licenseLogs, 
+        users:DB.users 
+      };
+      var binId = await db.createBin(initialData);
+      if(binId){
+        dbStatus='online';
+        console.log('✅ Bin جدید ساخته شد! ID:', binId);
+      } else {
+        dbStatus='offline';
+        console.warn('⚠️ ایجاد Bin ناموفق، از localStorage استفاده می‌شود');
+      }
     } else {
-      var data=await db.read();
-      if(data){ Object.keys(data).forEach(function(k){ if(DB[k]!==undefined){ DB[k]=data[k]; lsSet(k,data[k]); } }); dbStatus='online'; } else { dbStatus='offline'; }
+      // خواندن داده‌ها از Bin موجود
+      var data = await db.read();
+      if(data){
+        Object.keys(data).forEach(function(k){ 
+          if(DB[k]!==undefined){ 
+            DB[k]=data[k]; 
+            lsSet(k,data[k]); 
+          } 
+        });
+        dbStatus='online';
+        console.log('✅ داده‌ها از JSONBin بارگذاری شد!');
+      } else {
+        dbStatus='offline';
+        console.warn('⚠️ خواندن داده‌ها ناموفق، از localStorage استفاده می‌شود');
+      }
     }
-    db.startRealtime(function(data){ if(data){ Object.keys(data).forEach(function(k){ if(DB[k]!==undefined){ DB[k]=data[k]; } }); dbStatus='online'; render(); } }, 5000);
-  } catch(e){ console.error('DB error:',e); dbStatus='error'; }
+    
+    // شروع هماهنگی لحظه‌ای
+    db.startRealtime(function(data){ 
+      if(data){ 
+        Object.keys(data).forEach(function(k){ 
+          if(DB[k]!==undefined){ 
+            DB[k]=data[k]; 
+          } 
+        }); 
+        dbStatus='online'; 
+        render(); 
+      } 
+    }, 5000);
+    
+  } catch(e){ 
+    console.error('خطای دیتابیس:', e); 
+    dbStatus='error'; 
+  }
 
-  setTimeout(async function(){ S.dbStats=await db.getStats(); render(); }, 1000);
+  // دریافت آمار دیتابیس
+  setTimeout(async function(){ 
+    S.dbStats = await db.getStats(); 
+    render(); 
+  }, 2000);
+  
   render();
 }
 
