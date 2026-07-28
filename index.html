@@ -126,22 +126,17 @@ svg.ic{flex-shrink:0;}
 // ============================================================
 // 🔑 کلیدهای API JSONBin.io (از حساب شما)
 // ============================================================
-// این کلیدها را از پنل JSONBin.io کپی کنید
 const JSONBIN_API_KEY = '$2a$10$hgfExok0PxKOY5vhOnGO2OJY387HPkei8sjKcKtBpNV69kkDzqOQC';
 const JSONBIN_ACCESS_KEY = '$2a$10$Ee9yXX0q8b8EJLIUMBCg0.3H9os2d/5RSQy2hU.n5gv/aI.ngpO52';
-  // 📦 Bin ID ثابت برای همه کاربران
 const FIXED_BIN_ID = '6a68431ff5f4af5e29cb6009';
 
 // ============================================================
-// دیتابیس JSONBin.io
+// دیتابیس JSONBin.io — همیشه با همین یک Bin ثابت کار می‌کند
 // ============================================================
 class JSONBinDB {
   constructor(apiKey, accessKey, fixedBinId) {
     this.apiKey = apiKey;
     this.accessKey = accessKey;
-    // نکتهٔ مهم: binId همیشه همان مقدار ثابتی است که از بیرون داده می‌شود
-    // و هرگز از localStorage گرفته یا بازنویسی نمی‌شود؛ در غیر این صورت هر
-    // مرورگر/کاربر یک بانک اطلاعاتی جداگانه برای خودش می‌ساخت (همان باگ اصلی).
     this.binId = fixedBinId;
     this.baseURL = 'https://api.jsonbin.io/v3';
     this.cache = {};
@@ -203,35 +198,6 @@ class JSONBinDB {
 
   async get(key) { const data = await this.read(); return data ? data[key] : null; }
   async set(key, value) { const data = await this.read(); if (!data) return false; data[key] = value; return await this.write(data); }
-
-  // این متد فقط برای مواقع خاص (مثلاً ساخت دستیِ یک بانک اطلاعاتی جدید) نگه داشته
-  // شده و دیگر به‌صورت خودکار در boot() صدا زده نمی‌شود.
-  async createBin(initialData) {
-    try {
-      const res = await fetch(`${this.baseURL}/b`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'X-Master-Key': this.apiKey, 
-          'X-Access-Key': this.accessKey 
-        },
-        body: JSON.stringify(initialData)
-      });
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error('HTTP ' + res.status + ': ' + err);
-      }
-      const result = await res.json();
-      this.binId = result.metadata.id;
-      this.connected = true;
-      localStorage.setItem('taxapp_data', JSON.stringify(initialData));
-      return this.binId;
-    } catch(e) {
-      console.error('Create bin error:', e);
-      this.connected = false;
-      return null;
-    }
-  }
 
   startRealtime(callback, interval = 5000) {
     if (this.pollingInterval) clearInterval(this.pollingInterval);
@@ -315,9 +281,7 @@ class JSONBinDB {
 }
 
 // ============================================================
-// راه‌اندازی دیتابیس
-// همه کاربران — روی هر دستگاه یا مرورگری — همیشه به همین یک Bin ثابت
-// (FIXED_BIN_ID) وصل می‌شوند. هرگز بانک اطلاعاتی جدید و جداگانه ساخته نمی‌شود.
+// راه‌اندازی دیتابیس — همیشه با FIXED_BIN_ID (همه کاربران یک بانک مشترک)
 // ============================================================
 const db = new JSONBinDB(JSONBIN_API_KEY, JSONBIN_ACCESS_KEY, FIXED_BIN_ID);
 let dbStatus = 'connecting';
@@ -381,14 +345,23 @@ function loadDB(){
   DB.licenseLogs = getOrSeed('licenseLogs', []);
   DB.users = getOrSeed('users', {});
 }
-function saveDB(key){
+// ذخیره‌سازی روی بانک اطلاعاتی مشترک — با یک بار تلاش مجدد خودکار در صورت
+// شکست، و بازگرداندن نتیجهٔ واقعی (true/false) به‌جای فرض موفقیت.
+function saveDB(key, retriesLeft){
   lsSet(key, DB[key]);
-  // نوشتن روی Bin مشترک؛ اگر ناموفق بود، به کاربر اطلاع داده می‌شود
-  db.set(key, DB[key]).then(function(ok){
-    if(!ok){ console.warn('⚠️ ذخیره «'+key+'» روی بانک اطلاعاتی مشترک ناموفق بود (فقط محلی ذخیره شد).'); }
+  if (retriesLeft === undefined) retriesLeft = 1;
+  return db.set(key, DB[key]).then(function(ok){
     dbStatus = db.isConnected() ? 'online' : 'offline';
+    if (ok) return true;
+    console.warn('⚠️ ذخیره «'+key+'» روی بانک اطلاعاتی مشترک ناموفق بود.');
+    if (retriesLeft > 0) {
+      return new Promise(function(resolve){ setTimeout(resolve, 1200); })
+        .then(function(){ return saveDB(key, retriesLeft - 1); });
+    }
+    return false;
   });
 }
+
 
 // ============================================================
 // توابع کمکی
@@ -628,7 +601,7 @@ function onTemplateChange(v){ S.wiz.templateId=v; S.wiz.layehaText=buildLayeha()
 function onLayehaTextChange(v){ S.wiz.layehaText=v; }
 function copyLayehaText(){ var ta=document.getElementById('layehaTextArea'); var text=ta?ta.value:S.wiz.layehaText; var done=function(){ S.wiz.copyMsg='✅ کپی شد'; render(); setTimeout(function(){ S.wiz.copyMsg=''; render(); },1800); }; if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done).catch(function(){ S.wiz.copyMsg='کپی خودکار پشتیبانی نشد.'; render(); }); } else { S.wiz.copyMsg='کپی خودکار پشتیبانی نشد.'; render(); } }
 function downloadLayehaText(){ var ta=document.getElementById('layehaTextArea'); var text=ta?ta.value:S.wiz.layehaText; var blob=new Blob([text],{type:'text/plain;charset=utf-8'}); var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download='layeha.txt'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
-function submitLead(){ var nameEl=document.getElementById('leadNameInput'), phoneEl=document.getElementById('leadPhoneInput'), noteEl=document.getElementById('leadNoteInput'); S.wiz.lead.name=nameEl?nameEl.value:S.wiz.lead.name; S.wiz.lead.phone=phoneEl?phoneEl.value:S.wiz.lead.phone; S.wiz.lead.note=noteEl?noteEl.value:S.wiz.lead.note; if(!S.wiz.lead.name || !IRAN_MOBILE_RE.test((S.wiz.lead.phone||'').trim())){ render(); return; } S.wiz.sendStatus='sending'; render(); var plan=DB.plans.filter(function(p){return p.id===S.wiz.lead.planId;})[0]; var newLead={id:genId('lead'), name:S.wiz.lead.name, phone:S.wiz.lead.phone, note:S.wiz.lead.note, planId:S.wiz.lead.planId, planTitle:plan?plan.title:'', personType:S.wiz.personType, totalRaw:totalRawAmount(), status:'جدید', createdAt:new Date().toISOString()}; DB.leads.push(newLead); saveDB('leads'); S.wiz.leadSent=true; render(); sendLeadEmail(newLead, DB.meta.notifyEmail).then(function(result){ S.wiz.sendStatus=result.ok?'sent':'error'; render(); }); }
+function submitLead(){ var nameEl=document.getElementById('leadNameInput'), phoneEl=document.getElementById('leadPhoneInput'), noteEl=document.getElementById('leadNoteInput'); S.wiz.lead.name=nameEl?nameEl.value:S.wiz.lead.name; S.wiz.lead.phone=phoneEl?phoneEl.value:S.wiz.lead.phone; S.wiz.lead.note=noteEl?noteEl.value:S.wiz.lead.note; if(!S.wiz.lead.name || !IRAN_MOBILE_RE.test((S.wiz.lead.phone||'').trim())){ render(); return; } S.wiz.sendStatus='sending'; S.wiz.leadSyncFailed=false; render(); var plan=DB.plans.filter(function(p){return p.id===S.wiz.lead.planId;})[0]; var newLead={id:genId('lead'), name:S.wiz.lead.name, phone:S.wiz.lead.phone, note:S.wiz.lead.note, planId:S.wiz.lead.planId, planTitle:plan?plan.title:'', personType:S.wiz.personType, totalRaw:totalRawAmount(), status:'جدید', createdAt:new Date().toISOString()}; DB.leads.push(newLead); S.wiz.leadSent=true; render(); saveDB('leads').then(function(ok){ if(!ok){ S.wiz.leadSyncFailed=true; } render(); }); sendLeadEmail(newLead, DB.meta.notifyEmail).then(function(result){ S.wiz.sendStatus=result.ok?'sent':'error'; render(); }); }
 function selectPlan(id){ S.wiz.lead.planId=id; render(); }
 function restartWizard(){ S.wiz={step:'intro', personType:null, qId:null, answers:{}, selected:{}, templateId:null, layehaText:'', lead:{name:'', phone:'', note:'', planId:(DB.plans[0]&&DB.plans[0].id)||null}, leadSent:false, sendStatus:'idle', licenseInput:'', licenseError:'', licenseFailCount:0, licenseLockUntil:0, copyMsg:''}; render(); window.scrollTo(0,0); }
 
@@ -717,7 +690,7 @@ function renderStepConsult(){
   var meta=DB.meta;
   var plansHtml=DB.plans.map(function(pl){ var selected=S.wiz.lead.planId===pl.id; return '<button class="lead-plan '+(selected?'selected':'')+'" onclick="selectPlan(\''+pl.id+'\')"><div class="p-title">'+esc(pl.title)+'</div><div class="p-dur">'+esc(pl.duration)+'</div><div class="p-price" style="color:'+(pl.price===0?'var(--green)':'var(--gold)')+';">'+(pl.price===0?'رایگان':toman(pl.price))+'</div><div class="p-desc">'+esc(pl.desc)+'</div></button>'; }).join('');
   var phoneValid=IRAN_MOBILE_RE.test((S.wiz.lead.phone||'').trim());
-  var formOrSuccess = S.wiz.leadSent ? '<div class="success-box"><div class="title-row">'+ic('check',18)+'<span>درخواست ثبت شد.</span></div><div class="small-muted">'+(S.wiz.sendStatus==='sending'?'در حال ارسال...':(S.wiz.sendStatus==='sent'?'✅ ارسال شد':'⚠️ خطا'))+'</div></div>' :
+  var formOrSuccess = S.wiz.leadSent ? '<div class="success-box"><div class="title-row">'+ic('check',18)+'<span>درخواست ثبت شد.</span></div><div class="small-muted">'+(S.wiz.sendStatus==='sending'?'در حال ارسال ایمیل...':(S.wiz.sendStatus==='sent'?'✅ ایمیل اطلاع‌رسانی ارسال شد':'⚠️ خطا در ارسال ایمیل'))+'</div>'+(S.wiz.leadSyncFailed?'<div class="small-muted" style="color:var(--red);margin-top:6px;">⚠️ ذخیرهٔ درخواست روی سرور مشترک ناموفق بود. لطفاً همین حالا با شماره '+esc(DB.meta.phone)+' تماس بگیرید تا حتماً پیگیری شود.</div>':'')+'</div>' :
     '<div class="grid2"><label class="field"><span class="field-label">نام و نام خانوادگی</span><input type="text" id="leadNameInput" value="'+esc(S.wiz.lead.name)+'" oninput="S.wiz.lead.name=this.value" placeholder="علی احمدی" /></label><label class="field"><span class="field-label">شماره تماس</span><input type="tel" id="leadPhoneInput" value="'+esc(S.wiz.lead.phone)+'" oninput="S.wiz.lead.phone=this.value" placeholder="09xxxxxxxxx" />'+(S.wiz.lead.phone && !phoneValid?'<span class="field-hint" style="color:var(--red);">شماره معتبر نیست</span>':'')+'</label><div class="col-span-2"><label class="field"><span class="field-label">توضیح (اختیاری)</span><textarea id="leadNoteInput" rows="2" oninput="S.wiz.lead.note=this.value">'+esc(S.wiz.lead.note)+'</textarea></label></div><div class="col-span-2"><button class="btn btn-gold" '+((!S.wiz.lead.name || !phoneValid || S.wiz.sendStatus==='sending')?'disabled':'')+' onclick="submitLead()">'+ic('phone',15)+'<span>'+(S.wiz.sendStatus==='sending'?'در حال ارسال...':'درخواست تماس')+'</span></button></div></div>';
   return '<div class="card"><div class="section-eyebrow">گام پایانی</div><div class="section-title"><h2>مشاوره تلفنی</h2></div><div class="block" style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:20px;"><div style="display:flex;align-items:center;gap:10px;">'+ic('phone',22,'var(--gold)')+'<div><div class="small-muted">تماس فوری</div><div style="font-weight:800;font-size:16px;">'+esc(meta.phone)+'</div></div></div>'+(meta.whatsapp?'<a href="https://wa.me/'+meta.whatsapp.replace(/\D/g,'')+'" target="_blank" class="btn" style="background:var(--green-soft);color:var(--green);">'+ic('whatsapp',15)+'<span>واتس‌اپ</span></a>':'')+'</div><div class="grid3" style="margin-bottom:20px;">'+plansHtml+'</div>'+formOrSuccess+'<div class="btn-row"><button class="btn btn-ghost" onclick="goStep(\'layeha\')">'+ic('right',15)+'<span>بازگشت</span></button><button class="btn btn-ghost" onclick="restartWizard()"><span>شروع دوباره</span>'+ic('left',15)+'</button></div></div>';
 }
@@ -899,8 +872,8 @@ function renderMultiCheck(allItems, selectedIds, field){ return '<div class="mul
 
 // ============================================================
 // راه‌اندازی برنامه
-// همیشه با FIXED_BIN_ID کار می‌کند؛ هرگز بانک اطلاعاتی جدید نمی‌سازد،
-// مگر اینکه همان Bin ثابت هنوز کاملاً خالی باشد (اولین بار).
+// همیشه از طریق Worker به همان Bin مشترک وصل می‌شود؛ هرگز بانک اطلاعاتی
+// جدید نمی‌سازد، مگر اینکه همان Bin مشترک هنوز کاملاً خالی باشد (اولین بار).
 // ============================================================
 async function boot(){
   loadDB();
