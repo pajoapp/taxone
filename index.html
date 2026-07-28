@@ -136,10 +136,13 @@ const FIXED_BIN_ID = '6a68431ff5f4af5e29cb6009';
 // دیتابیس JSONBin.io
 // ============================================================
 class JSONBinDB {
-  constructor(apiKey, accessKey) {
+  constructor(apiKey, accessKey, fixedBinId) {
     this.apiKey = apiKey;
     this.accessKey = accessKey;
-    this.binId = FIXED_BIN_ID;
+    // نکتهٔ مهم: binId همیشه همان مقدار ثابتی است که از بیرون داده می‌شود
+    // و هرگز از localStorage گرفته یا بازنویسی نمی‌شود؛ در غیر این صورت هر
+    // مرورگر/کاربر یک بانک اطلاعاتی جداگانه برای خودش می‌ساخت (همان باگ اصلی).
+    this.binId = fixedBinId;
     this.baseURL = 'https://api.jsonbin.io/v3';
     this.cache = {};
     this.pollingInterval = null;
@@ -149,10 +152,7 @@ class JSONBinDB {
   }
 
   async read() {
-    if (!this.binId) {
-      const saved = localStorage.getItem('taxapp_bin_id');
-      if (saved) { this.binId = saved; } else { return null; }
-    }
+    if (!this.binId) { return null; }
     try {
       const res = await fetch(`${this.baseURL}/b/${this.binId}/latest`, {
         headers: { 
@@ -177,10 +177,7 @@ class JSONBinDB {
   }
 
   async write(data) {
-    if (!this.binId) {
-      const saved = localStorage.getItem('taxapp_bin_id');
-      if (saved) { this.binId = saved; } else { return false; }
-    }
+    if (!this.binId) { return false; }
     try {
       const res = await fetch(`${this.baseURL}/b/${this.binId}`, {
         method: 'PUT',
@@ -207,6 +204,8 @@ class JSONBinDB {
   async get(key) { const data = await this.read(); return data ? data[key] : null; }
   async set(key, value) { const data = await this.read(); if (!data) return false; data[key] = value; return await this.write(data); }
 
+  // این متد فقط برای مواقع خاص (مثلاً ساخت دستیِ یک بانک اطلاعاتی جدید) نگه داشته
+  // شده و دیگر به‌صورت خودکار در boot() صدا زده نمی‌شود.
   async createBin(initialData) {
     try {
       const res = await fetch(`${this.baseURL}/b`, {
@@ -225,7 +224,6 @@ class JSONBinDB {
       const result = await res.json();
       this.binId = result.metadata.id;
       this.connected = true;
-      localStorage.setItem('taxapp_bin_id', this.binId);
       localStorage.setItem('taxapp_data', JSON.stringify(initialData));
       return this.binId;
     } catch(e) {
@@ -233,12 +231,6 @@ class JSONBinDB {
       this.connected = false;
       return null;
     }
-  }
-
-  loadBinId() { 
-    const saved = localStorage.getItem('taxapp_bin_id'); 
-    if (saved) { this.binId = saved; return true; } 
-    return false; 
   }
 
   startRealtime(callback, interval = 5000) {
@@ -324,8 +316,10 @@ class JSONBinDB {
 
 // ============================================================
 // راه‌اندازی دیتابیس
+// همه کاربران — روی هر دستگاه یا مرورگری — همیشه به همین یک Bin ثابت
+// (FIXED_BIN_ID) وصل می‌شوند. هرگز بانک اطلاعاتی جدید و جداگانه ساخته نمی‌شود.
 // ============================================================
-const db = new JSONBinDB(JSONBIN_API_KEY, JSONBIN_ACCESS_KEY);
+const db = new JSONBinDB(JSONBIN_API_KEY, JSONBIN_ACCESS_KEY, FIXED_BIN_ID);
 let dbStatus = 'connecting';
 
 // ============================================================
@@ -387,7 +381,14 @@ function loadDB(){
   DB.licenseLogs = getOrSeed('licenseLogs', []);
   DB.users = getOrSeed('users', {});
 }
-function saveDB(key){ lsSet(key, DB[key]); db.set(key, DB[key]); }
+function saveDB(key){
+  lsSet(key, DB[key]);
+  // نوشتن روی Bin مشترک؛ اگر ناموفق بود، به کاربر اطلاع داده می‌شود
+  db.set(key, DB[key]).then(function(ok){
+    if(!ok){ console.warn('⚠️ ذخیره «'+key+'» روی بانک اطلاعاتی مشترک ناموفق بود (فقط محلی ذخیره شد).'); }
+    dbStatus = db.isConnected() ? 'online' : 'offline';
+  });
+}
 
 // ============================================================
 // توابع کمکی
@@ -432,7 +433,8 @@ function ic(name, size, color){
     book:'<path d="M4 4h7v16H4z" fill="none"/><path d="M20 4h-7v16h7z" fill="none"/>',
     wifi:'<path d="M2 8.5a16 16 0 0 1 20 0" fill="none"/><path d="M5.5 12a11 11 0 0 1 13 0" fill="none"/><path d="M9 15.5a6 6 0 0 1 6 0" fill="none"/><circle cx="12" cy="19" r="1"/>',
     backup:'<path d="M3 4h18v16H3z" fill="none"/><polyline points="8 10 12 14 16 10" fill="none"/><line x1="12" y1="14" x2="12" y2="4"/>',
-    restore:'<path d="M3 4h18v16H3z" fill="none"/><polyline points="16 14 12 10 8 14" fill="none"/><line x1="12" y1="4" x2="12" y2="14"/>'
+    restore:'<path d="M3 4h18v16H3z" fill="none"/><polyline points="16 14 12 10 8 14" fill="none"/><line x1="12" y1="4" x2="12" y2="14"/>',
+    refresh:'<polyline points="23 4 23 10 17 10" fill="none"/><polyline points="1 20 1 14 7 14" fill="none"/><path d="M3.5 9a9 9 0 0 1 14.5-4.5L23 10" fill="none"/><path d="M20.5 15a9 9 0 0 1-14.5 4.5L1 14" fill="none"/>'
   };
   return '<svg class="ic" width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+(p[name]||'')+'</svg>';
 }
@@ -870,7 +872,7 @@ function renderSettingsAdmin(){
 function saveSettings(){ var ids=['brandNameInput','taglineInput','phoneInput','whatsappInput','notifyEmailInput','adminPasswordInput','adTextInput','freeQueryLimitInput']; var vals={}; ids.forEach(function(id){ var el=document.getElementById(id); if(el) vals[id]=el.value; }); DB.meta.brandName=vals.brandNameInput||DB.meta.brandName; DB.meta.tagline=vals.taglineInput||''; DB.meta.phone=vals.phoneInput||''; DB.meta.whatsapp=vals.whatsappInput||''; DB.meta.notifyEmail=vals.notifyEmailInput||''; DB.meta.adminPassword=vals.adminPasswordInput||'123456'; DB.meta.adText=vals.adTextInput||''; DB.meta.freeQueryLimit=Math.max(0,parseInt(vals.freeQueryLimitInput,10)||0); var adEl=document.getElementById('adEnabledInput'); DB.meta.adEnabled=adEl?adEl.checked:true; saveDB('meta'); S.settingsSaved=true; render(); setTimeout(function(){ S.settingsSaved=false; render(); },1800); }
 
 function renderGuideAdmin(){
-  return '<div class="card"><div class="section-title tight"><h2>📖 راهنما</h2></div><div class="block"><div style="font-weight:800;">۱. تنظیم JSONBin.io</div><div class="small-muted">کلیدهای API در ابتدای کد تنظیم شده‌اند.</div></div><div class="block"><div style="font-weight:800;">۲. استقرار روی GitHub Pages</div><div class="small-muted">فایل index.html را در ریپازیتوری آپلود کنید. Settings → Pages → main branch</div></div><div class="block"><div style="font-weight:800;">۳. لینک‌ها</div><div class="small-muted">مدیریت: <code class="tpl-var">#'+ADMIN_SECRET+'</code><br/>کاربران: آدرس اصلی</div></div><div class="block"><div style="font-weight:800;">۴. رمز پیش‌فرض</div><div class="small-muted">123456 — قابل تغییر در تنظیمات</div></div></div>';
+  return '<div class="card"><div class="section-title tight"><h2>📖 راهنما</h2></div><div class="block"><div style="font-weight:800;">۱. اتصال به یک بانک اطلاعاتی مشترک</div><div class="small-muted">همه کاربران با هر مرورگر/دستگاهی، همیشه به همان یک Bin ثابت وصل می‌شوند؛ برای همین تغییرات مدیر برای همه دیده می‌شود.</div></div><div class="block"><div style="font-weight:800;">۲. استقرار روی GitHub Pages</div><div class="small-muted">فایل index.html را در ریپازیتوری آپلود کنید. Settings → Pages → main branch</div></div><div class="block"><div style="font-weight:800;">۳. لینک‌ها</div><div class="small-muted">مدیریت: <code class="tpl-var">#'+ADMIN_SECRET+'</code><br/>کاربران: آدرس اصلی</div></div><div class="block"><div style="font-weight:800;">۴. رمز پیش‌فرض</div><div class="small-muted">123456 — قابل تغییر در تنظیمات</div></div><div class="block"><div style="font-weight:800;">۵. نکتهٔ امنیتی</div><div class="small-muted">کلیدهای JSONBin در همین فایل قرار دارند و برای هر کسی که کد صفحه را ببیند قابل مشاهده است. برای کاربرد جدی، بهتر است این کلیدها را پشت یک سرویس بک‌اند مخفی کنید.</div></div></div>';
 }
 
 // ============================================================
@@ -897,6 +899,8 @@ function renderMultiCheck(allItems, selectedIds, field){ return '<div class="mul
 
 // ============================================================
 // راه‌اندازی برنامه
+// همیشه با FIXED_BIN_ID کار می‌کند؛ هرگز بانک اطلاعاتی جدید نمی‌سازد،
+// مگر اینکه همان Bin ثابت هنوز کاملاً خالی باشد (اولین بار).
 // ============================================================
 async function boot(){
   loadDB();
@@ -908,64 +912,59 @@ async function boot(){
   try {
     dbStatus='connecting';
     render();
-    
-    // بررسی آیا Bin ID وجود دارد
-    if(!db.loadBinId()){
-      // ایجاد Bin جدید
-      var initialData={ 
-        questions:DB.questions, 
-        obligations:DB.obligations, 
-        penalties:DB.penalties, 
-        templates:DB.templates, 
-        plans:DB.plans, 
-        meta:DB.meta, 
-        leads:DB.leads, 
-        licenses:DB.licenses, 
-        licenseLogs:DB.licenseLogs, 
-        users:DB.users 
-      };
-      var binId = await db.createBin(initialData);
-      if(binId){
-        dbStatus='online';
-        console.log('✅ Bin جدید ساخته شد! ID:', binId);
-      } else {
-        dbStatus='offline';
-        console.warn('⚠️ ایجاد Bin ناموفق، از localStorage استفاده می‌شود');
-      }
+
+    var data = await db.read();
+    if (data) {
+      // داده‌های Bin مشترک با موفقیت خوانده شد؛ همان را مرجع قرار بده
+      Object.keys(data).forEach(function(k){
+        if (DB[k] !== undefined) {
+          DB[k] = data[k];
+          lsSet(k, data[k]);
+        }
+      });
+      dbStatus = 'online';
+      console.log('✅ داده‌ها از Bin مشترک بارگذاری شد!');
     } else {
-      // خواندن داده‌ها از Bin موجود
-      var data = await db.read();
-      if(data){
-        Object.keys(data).forEach(function(k){ 
-          if(DB[k]!==undefined){ 
-            DB[k]=data[k]; 
-            lsSet(k,data[k]); 
-          } 
-        });
-        dbStatus='online';
-        console.log('✅ داده‌ها از JSONBin بارگذاری شد!');
+      // Bin مشترک هنوز داده‌ای ندارد (اولین راه‌اندازی) یا در دسترس نیست؛
+      // فقط در این حالت، مقداردهی اولیه انجام می‌شود — بدون ساخت Bin جدید.
+      var initialData = {
+        questions: DB.questions,
+        obligations: DB.obligations,
+        penalties: DB.penalties,
+        templates: DB.templates,
+        plans: DB.plans,
+        meta: DB.meta,
+        leads: DB.leads,
+        licenses: DB.licenses,
+        licenseLogs: DB.licenseLogs,
+        users: DB.users
+      };
+      var ok = await db.write(initialData);
+      if (ok) {
+        dbStatus = 'online';
+        console.log('✅ Bin مشترک با داده‌های اولیه مقداردهی شد.');
       } else {
-        dbStatus='offline';
-        console.warn('⚠️ خواندن داده‌ها ناموفق، از localStorage استفاده می‌شود');
+        dbStatus = 'offline';
+        console.warn('⚠️ اتصال به Bin مشترک ناموفق بود، از localStorage استفاده می‌شود');
       }
     }
-    
-    // شروع هماهنگی لحظه‌ای
-    db.startRealtime(function(data){ 
-      if(data){ 
-        Object.keys(data).forEach(function(k){ 
-          if(DB[k]!==undefined){ 
-            DB[k]=data[k]; 
-          } 
-        }); 
-        dbStatus='online'; 
-        render(); 
-      } 
+
+    // شروع هماهنگی لحظه‌ای بین همهٔ کاربران روی همان Bin ثابت (هر ۵ ثانیه)
+    db.startRealtime(function(data){
+      if (data) {
+        Object.keys(data).forEach(function(k){
+          if (DB[k] !== undefined) {
+            DB[k] = data[k];
+          }
+        });
+        dbStatus = 'online';
+        render();
+      }
     }, 5000);
-    
-  } catch(e){ 
-    console.error('خطای دیتابیس:', e); 
-    dbStatus='error'; 
+
+  } catch(e){
+    console.error('خطای دیتابیس:', e);
+    dbStatus = 'error';
   }
 
   // دریافت آمار دیتابیس
