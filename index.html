@@ -150,15 +150,12 @@ const JSONBIN_ACCESS_KEY = '$2a$10$PSYcTn.Tw4.RQE2C0eNCqOV6JHjgW735RgblGIXFDU945
 
 // ============================================================
 // دیتابیس JSONBin.io
-// ============================================================
+// ===============================
 class JSONBinDB {
   constructor(apiKey, accessKey) {
-    this.apiKey = $2a$10$/U0840jHz55mu4ycQB4nvOxavDse85lBH36HBvjVKOFKt/DuvtN9.;
-    this.accessKey = $2a$10$PSYcTn.Tw4.RQE2C0eNCqOV6JHjgW735RgblGIXFDU945e9xr8ozO;
+    this.apiKey = apiKey;
+    this.accessKey = accessKey;
     this.binId = null;
-    this.baseURL = 'https://api.jsonbin.io/v3';
-    this.cache = {};
-    this.pollingInterval = null;
     this.isPolling = false;
     this.listeners = [];
   }
