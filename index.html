@@ -129,6 +129,8 @@ svg.ic{flex-shrink:0;}
 // این کلیدها را از پنل JSONBin.io کپی کنید
 const JSONBIN_API_KEY = '$2a$10$hgfExok0PxKOY5vhOnGO2OJY387HPkei8sjKcKtBpNV69kkDzqOQC';
 const JSONBIN_ACCESS_KEY = '$2a$10$Ee9yXX0q8b8EJLIUMBCg0.3H9os2d/5RSQy2hU.n5gv/aI.ngpO52';
+  // 📦 Bin ID ثابت برای همه کاربران
+const FIXED_BIN_ID = '6a68431ff5f4af5e29cb6009';
 
 // ============================================================
 // دیتابیس JSONBin.io
@@ -137,7 +139,7 @@ class JSONBinDB {
   constructor(apiKey, accessKey) {
     this.apiKey = apiKey;
     this.accessKey = accessKey;
-    this.binId = null;
+    this.binId = FIXED_BIN_ID;
     this.baseURL = 'https://api.jsonbin.io/v3';
     this.cache = {};
     this.pollingInterval = null;
