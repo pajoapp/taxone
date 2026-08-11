@@ -208,7 +208,7 @@ var S = {
     copyMsg:''
   },
   leadsQuery:'', formType:null, formMode:null, formId:null, form:{},
-  settingsSaved:false, newLicenseDuration:3
+  settingsSaved:false, newLicenseDuration:3, reseedLoading:false, reseedMsg:''
 };
 
 var NS = 'taxapp_v2::';
@@ -1133,7 +1133,27 @@ function renderSettingsAdmin(){
     '<label class="field"><span class="field-label">استعلام رایگان</span><input type="number" id="freeQueryLimitInput" value="'+esc(m.freeQueryLimit!=null?m.freeQueryLimit:3)+'" min="0" /></label>' +
     '<label class="field"><span class="field-label">متن تبلیغاتی (نوار متحرک)</span><textarea id="adTextInput" rows="2">'+esc(m.adText||'')+'</textarea></label>' +
     '<label class="checkbox-row"><input type="checkbox" id="adEnabledInput" '+(m.adEnabled!==false?'checked':'')+' /><span>نمایش نوار تبلیغاتی</span></label>' +
-    '<div class="btn-row start"><button class="btn btn-primary" onclick="saveSettings()">ذخیره</button>'+(S.settingsSaved?'<span class="small-muted" style="color:var(--green);">✅ ذخیره شد</span>':'')+'</div></div></div>';
+    '<div class="btn-row start"><button class="btn btn-primary" onclick="saveSettings()">ذخیره</button>'+(S.settingsSaved?'<span class="small-muted" style="color:var(--green);">✅ ذخیره شد</span>':'')+'</div></div>' +
+    '<div class="block" style="margin-top:18px;"><div style="font-weight:800;font-size:13.5px;margin-bottom:6px;">🔄 به‌روزرسانی محتوای قانونی</div>' +
+    '<div class="small-muted" style="margin-bottom:10px;">سوالات، تکالیف و جرایم را به آخرین نسخه‌ای که در کد Worker تعریف شده به‌روز می‌کند. کاربران، درخواست‌ها، لایسنس‌ها و تنظیمات برند شما دست‌نخورده می‌مانند.</div>' +
+    '<button class="btn btn-gold" '+(S.reseedLoading?'disabled':'')+' onclick="reseedContent()">'+ic('refresh',15)+'<span>'+(S.reseedLoading?'در حال به‌روزرسانی...':'به‌روزرسانی سوالات و تکالیف')+'</span></button>' +
+    (S.reseedMsg?'<div class="small-muted" style="margin-top:8px;color:var(--green);">'+esc(S.reseedMsg)+'</div>':'') +
+    '</div></div>';
+}
+async function reseedContent(){
+  if(!confirm('سوالات، تکالیف و جرایم فعلی با نسخهٔ جدید جایگزین می‌شود (کاربران و درخواست‌ها دست‌نخورده می‌مانند). ادامه می‌دهید؟')) return;
+  S.reseedLoading = true; S.reseedMsg=''; render();
+  try{
+    await Api._fetch('/api/admin/reseed-content', { method:'POST', headers:{ 'Authorization':'Bearer '+S.adminToken } });
+    var data = await Api.adminGetData(S.adminToken);
+    S.adminData = data;
+    apiStatus='online';
+    S.reseedMsg = '✅ محتوا با موفقیت به‌روزرسانی شد.';
+  }catch(e){
+    apiStatus='offline';
+    S.reseedMsg = '❌ به‌روزرسانی ناموفق بود. دوباره تلاش کنید.';
+  }
+  S.reseedLoading = false; render();
 }
 async function saveSettings(){
   var ids=['brandNameInput','taglineInput','seoDescInput','phoneInput','whatsappInput','notifyEmailInput','adTextInput','freeQueryLimitInput'];
