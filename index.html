@@ -9,6 +9,13 @@
 <meta name="robots" content="index, follow" />
 <meta name="author" content="دستیار تکالیف مالیاتی" />
 <link rel="canonical" href="https://REPLACE-WITH-YOUR-DOMAIN/" id="canonicalLink" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="theme-color" content="#1B2A45" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="دستیار مالیاتی" />
 
 <!-- Open Graph / شبکه‌های اجتماعی -->
 <meta property="og:type" content="website" />
@@ -57,6 +64,8 @@ a{color:inherit;}button{font-family:inherit;cursor:pointer;}
 .btn:disabled{opacity:.5;cursor:not-allowed;}
 .btn-primary{background:var(--ink);color:#fff;}
 .btn-gold{background:var(--gold);color:#fff;}
+.btn-services{background:linear-gradient(90deg,#0F6E5C,#14907A);color:#fff;box-shadow:0 2px 10px rgba(15,110,92,.35);border:1px solid #0c5747;}
+.btn-services:hover{filter:brightness(1.08);}
 .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line);}
 .btn-sm{padding:7px 10px;font-size:12px;border-radius:8px;}
 .btn-row{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;}
@@ -158,6 +167,11 @@ svg.ic{flex-shrink:0;}
 .error-banner{font-size:12px;border-radius:12px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px;background:#3a1414;color:#ffd7d0;margin:0 0 14px;}
 .success-banner{font-size:12px;border-radius:12px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px;background:var(--green-soft);color:var(--green);margin:0 0 14px;}
 .disclaimer{font-size:12px;border-radius:12px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px;background:var(--red-soft);color:var(--red);margin:14px 0 4px;}
+.install-banner{background:var(--ink);color:#fff;padding:10px 0;}
+.install-banner-inner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;}
+.install-banner-inner span{flex:1;min-width:180px;}
+.install-banner-close{background:transparent;border:none;color:#fff;opacity:.75;cursor:pointer;flex-shrink:0;padding:4px;}
+.install-banner-close:hover{opacity:1;}
 .form-box{border:1px dashed var(--gold);border-radius:14px;padding:16px;margin-bottom:16px;background:#FFFDF7;}
 .opt-box{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;background:var(--card);}
 .opt-row{display:flex;gap:8px;align-items:center;margin-bottom:6px;}
@@ -193,6 +207,45 @@ const API_BASE = 'https://lively-pine-52b4.msalimabadifarahani.workers.dev';
 var CATALOG = { meta:{}, questions:[], obligations:[], penalties:[], templates:[], plans:[], servicePlans:[], knowledgeBase:[], auditChecklist:[] };
 var apiStatus = 'connecting'; // connecting | online | offline
 
+// ============================================================
+// نصب برنامه (PWA) — بنر بالای صفحه
+// ============================================================
+var PWA = { deferredEvent:null, showBanner:false, isIOS:false, dismissed:false };
+function isStandaloneMode(){
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+}
+function initPwaInstall(){
+  PWA.isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  if (isStandaloneMode() || lsGet('pwa_installed')) return; // از قبل نصب شده
+  if (PWA.isIOS) {
+    PWA.showBanner = true; render();
+    return;
+  }
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();
+    PWA.deferredEvent = e;
+    PWA.showBanner = true;
+    render();
+  });
+  window.addEventListener('appinstalled', function(){
+    PWA.showBanner = false; lsSet('pwa_installed', true); render();
+  });
+}
+async function triggerInstallPrompt(){
+  if (!PWA.deferredEvent) return;
+  PWA.deferredEvent.prompt();
+  try { await PWA.deferredEvent.userChoice; } catch(e){}
+  PWA.deferredEvent = null;
+  PWA.showBanner = false;
+  render();
+}
+function dismissInstallBanner(){ PWA.dismissed = true; render(); }
+function registerServiceWorker(){
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js').catch(function(){ /* اختیاری — شکست آن مشکلی ایجاد نمی‌کند */ });
+  }
+}
+
 var S = {
   route:'user',
   authName:'', authPhone:'', authError:'', remaining:null, authTermsAccepted:false,
@@ -206,8 +259,10 @@ var S = {
     leadSent:false, sendStatus:'idle', leadSyncFailed:false,
     licenseInput:'', licenseError:'', licenseChecking:false,
     copyMsg:'',
+    fullAccessGranted:false,
+    licenseReqSent:false, licenseReqSending:false,
     serviceView:null,
-    kbQuery:'', kbResults:null, kbSearching:false,
+    kbQuery:'', kbResults:null, kbSearching:false, kbAnswer:null, kbRemaining:null, kbRequireLicense:false,
     myAuditChecked:{}, myReminders:[], myDataLoaded:false,
     reminderActivating:false, reminderMsg:'',
     svcForm:{name:'', phone:'', note:'', caseNumber:'', file:null, fileId:null, fileName:'', uploading:false, uploadError:''},
@@ -215,7 +270,7 @@ var S = {
   },
   leadsQuery:'', formType:null, formMode:null, formId:null, form:{},
   settingsSaved:false, newLicenseDuration:3, reseedLoading:false, reseedMsg:'',
-  serviceReqQuery:''
+  serviceReqQuery:'', kbExtracting:false, kbExtractError:''
 };
 
 var NS = 'taxapp_v2::';
@@ -252,12 +307,15 @@ var Api = {
   adminLogin(password){ return this._fetch('/api/admin/login', { method:'POST', body:{password:password} }); },
   adminGetData(token){ return this._fetch('/api/admin/data', { headers:{ 'Authorization':'Bearer '+token } }); },
   adminPutData(token, data){ return this._fetch('/api/admin/data', { method:'PUT', headers:{ 'Authorization':'Bearer '+token }, body:data }); },
-  kbSearch(query){ return this._fetch('/api/kb/search', { method:'POST', body:{query:query} }); },
+  kbSearch(query, phone, licensed){ return this._fetch('/api/kb/search', { method:'POST', body:{query:query, phone:phone, licensed:licensed} }); },
+  kbAnswer(query, phone, licensed){ return this._fetch('/api/kb/answer', { method:'POST', body:{query:query, phone:phone, licensed:licensed} }); },
+  licenseRequest(payload){ return this._fetch('/api/license-request', { method:'POST', body:payload }); },
   upload(filename, mimeType, dataBase64){ return this._fetch('/api/upload', { method:'POST', body:{filename:filename, mimeType:mimeType, dataBase64:dataBase64} }); },
   serviceRequest(payload){ return this._fetch('/api/service-request', { method:'POST', body:payload }); },
   auditToggle(phone, itemId, checked){ return this._fetch('/api/audit/toggle', { method:'POST', body:{phone:phone, itemId:itemId, checked:checked} }); },
   saveObligations(phone, personType, obligationIds){ return this._fetch('/api/obligations/save', { method:'POST', body:{phone:phone, personType:personType, obligationIds:obligationIds} }); },
   adminGetFile(token, fileId){ return this._fetch('/api/admin/file?id='+encodeURIComponent(fileId), { headers:{ 'Authorization':'Bearer '+token } }); },
+  adminFetchLink(token, url){ return this._fetch('/api/admin/fetch-link', { method:'POST', headers:{ 'Authorization':'Bearer '+token }, body:{url:url} }); },
   me(phone){ return this._fetch('/api/me', { method:'POST', body:{phone:phone} }); }
 };
 
@@ -371,12 +429,31 @@ function updateSeoTags(){
 }
 
 function renderApp(){
-  return renderHeader() +
+  return renderInstallBanner() +
+    renderHeader() +
     '<main class="container">' +
       renderDisclaimer() +
       (S.route==='user' ? (S.authPhone ? renderUserWizard() : renderAuthGate()) : (S.adminAuthed ? renderAdminPanel() : renderAdminGate())) +
     '</main>' +
     renderFooter();
+}
+
+function renderInstallBanner(){
+  if (!PWA.showBanner || PWA.dismissed) return '';
+  var brand = (CATALOG.meta && CATALOG.meta.brandName) || 'دستیار مالیاتی';
+  if (PWA.isIOS) {
+    return '<div class="install-banner"><div class="container install-banner-inner">' +
+      ic('download',16,'#fff') +
+      '<span>برای نصب «'+esc(brand)+'» روی گوشی: دکمهٔ اشتراک‌گذاری Safari را بزنید و «Add to Home Screen» را انتخاب کنید.</span>' +
+      '<button class="install-banner-close" onclick="dismissInstallBanner()">'+ic('x',14,'#fff')+'</button>' +
+    '</div></div>';
+  }
+  return '<div class="install-banner"><div class="container install-banner-inner">' +
+    ic('download',16,'#fff') +
+    '<span>«'+esc(brand)+'» را روی دستگاه خود نصب کنید تا سریع‌تر و مثل یک اپ واقعی به آن دسترسی داشته باشید.</span>' +
+    '<button class="btn btn-sm" style="background:#fff;color:var(--ink);flex-shrink:0;" onclick="triggerInstallPrompt()">نصب</button>' +
+    '<button class="install-banner-close" onclick="dismissInstallBanner()">'+ic('x',14,'#fff')+'</button>' +
+  '</div></div>';
 }
 
 function renderApiPill(){
@@ -493,8 +570,11 @@ function isLicenseVerified(){ return !!lsGet('license_ok'); }
 function hasQuotaOrLicense(){ return (S.remaining===null || S.remaining>0) || isLicenseVerified(); }
 
 async function startWizard(type){
-  if (!hasQuotaOrLicense()) { go('wizard/quota'); return; }
-  if (!isLicenseVerified()) {
+  // همیشه اجازهٔ شروع و مشاهدهٔ تکالیف داده می‌شود؛ سهمیهٔ رایگان فقط تعیین می‌کند که آیا
+  // ادامهٔ مسیر (جرایم و بخشودگی) در همین اجرا بدون لایسنس هم آزاد است یا خیر.
+  var hadQuotaBeforeThisRun = hasQuotaOrLicense();
+  S.wiz.fullAccessGranted = isLicenseVerified() || hadQuotaBeforeThisRun;
+  if (!isLicenseVerified() && hadQuotaBeforeThisRun) {
     try { var r = await Api.usage(S.authPhone); S.remaining = r.remaining; apiStatus='online'; }
     catch(e){ apiStatus='offline'; }
   }
@@ -516,7 +596,7 @@ function handleAnswer(optId){
 }
 
 function goStep(step){
-  if (step==='penalties' && !isLicenseVerified()) { go('wizard/license'); return; }
+  if (step==='penalties' && !S.wiz.fullAccessGranted && !isLicenseVerified()) { go('wizard/license'); return; }
   go('wizard/'+step);
 }
 function togglePenalty(id, checked){ S.wiz.selected[id]=Object.assign({}, S.wiz.selected[id]||{}, {checked:checked}); render(); }
@@ -565,7 +645,12 @@ function restartWizard(){
   S.wiz={step:'intro', personType:null, qId:null, answers:{}, triggered:{}, selected:{}, templateId:null, layehaText:'',
     lead:{name:'', phone:'', note:'', planId:(CATALOG.plans[0]&&CATALOG.plans[0].id)||null},
     leadSent:false, sendStatus:'idle', leadSyncFailed:false,
-    licenseInput:'', licenseError:'', licenseChecking:false, copyMsg:''};
+    licenseInput:'', licenseError:'', licenseChecking:false, copyMsg:'',
+    fullAccessGranted:false, licenseReqSent:false, licenseReqSending:false,
+    serviceView:null, kbQuery:'', kbResults:null, kbSearching:false, kbAnswer:null, kbRemaining:null, kbRequireLicense:false,
+    myAuditChecked:{}, myReminders:[], myDataLoaded:false, reminderActivating:false, reminderMsg:'',
+    svcForm:{name:'', phone:'', note:'', caseNumber:'', file:null, fileId:null, fileName:'', uploading:false, uploadError:''},
+    svcSendStatus:'idle', svcSelectedPlanId:null};
   go('');
 }
 
@@ -603,7 +688,6 @@ function renderProgressTabs(){
 }
 
 function renderUserWizard(){
-  if(S.wiz.step==='intro' && !hasQuotaOrLicense()) return renderQuotaGate();
   var step=S.wiz.step, body='';
   if(step==='intro') body=renderStepIntro();
   else if(step==='quota') body=renderQuotaGate();
@@ -622,8 +706,8 @@ function renderUserWizard(){
 function renderStepIntro(){
   var remain = S.remaining;
   var quotaLine = isLicenseVerified() ? '<span class="quota-pill">'+ic('shield',12)+' اشتراک فعال</span>'
-    : '<span class="quota-pill">'+ic('info',12)+' '+(remain===null?'—':toFa(remain))+' استعلام رایگان</span>';
-  var servicesBtn = isLicenseVerified() ? '<button class="btn btn-ghost btn-sm" onclick="go(\'wizard/services\')">'+ic('branch',13)+' خدمات آنلاین</button>' : '';
+    : '<span class="quota-pill">'+ic('info',12)+' '+(remain===null?'—':toFa(remain))+' اجرای کامل رایگان باقی‌مانده</span>';
+  var servicesBtn = '<button class="btn btn-services btn-sm" onclick="go(\'wizard/services\')">'+ic('branch',13)+' <span>خدمات آنلاین</span></button>';
   return '<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">'+quotaLine +
     '<div style="display:flex;gap:6px;flex-wrap:wrap;">'+servicesBtn+(S.authName?'<button class="btn btn-ghost btn-sm" onclick="logoutUser()">'+ic('logout',13)+' خروج ('+esc(S.authName)+')</button>':'')+'</div></div>' +
     '<div class="section-eyebrow">گام اول</div><div class="section-title"><h1>نوع مؤدی خود را انتخاب کنید</h1></div>' +
@@ -634,21 +718,41 @@ function renderStepIntro(){
     '</div></div>';
 }
 
+// دکمه/پیام مشترک «تماس برای دریافت لایسنس» — هم شمارهٔ مدیر را نشان می‌دهد هم پیام به او ارسال می‌کند
+function renderLicenseHelper(context){
+  var meta = CATALOG.meta||{};
+  var phoneLine = meta.phone ? '<div class="small-muted" style="margin-top:6px;">برای دریافت لایسنس می‌توانید مستقیم با شمارهٔ <b>'+esc(meta.phone)+'</b> تماس بگیرید.</div>' : '';
+  if (S.wiz.licenseReqSent) {
+    return phoneLine + '<div class="small-muted" style="margin-top:8px;color:var(--green);">✅ درخواست شما برای کارشناسان ما ارسال شد؛ به‌زودی با شما تماس می‌گیریم.</div>';
+  }
+  return phoneLine + '<button class="btn btn-ghost btn-sm" style="margin-top:10px;" '+(S.wiz.licenseReqSending?'disabled':'')+' onclick="requestLicenseCall(\''+context+'\')">'+ic('phone',13)+'<span>'+(S.wiz.licenseReqSending?'در حال ارسال...':'درخواست تماس برای دریافت لایسنس')+'</span></button>';
+}
+async function requestLicenseCall(context){
+  S.wiz.licenseReqSending = true; render();
+  try{
+    await Api.licenseRequest({ name:S.authName, phone:S.authPhone, context:context });
+    apiStatus='online'; S.wiz.licenseReqSent = true;
+  }catch(e){ apiStatus='offline'; alert('ارسال درخواست ناموفق بود. لطفاً دوباره تلاش کنید یا مستقیم تماس بگیرید.'); }
+  S.wiz.licenseReqSending = false; render();
+}
+
 function renderQuotaGate(){
   var m=CATALOG.meta||{};
   return '<div class="card narrow"><div class="lock-wrap"><div class="lock-badge">'+ic('lock',22,'#E7C878')+'</div><h2>سقف استعلام تمام شد</h2>' +
-    '<p>سهمیهٔ '+toFa(m.freeQueryLimit!=null?m.freeQueryLimit:3)+' استعلام رایگان استفاده شد.</p></div>' +
+    '<p>سهمیهٔ '+toFa(m.freeQueryLimit!=null?m.freeQueryLimit:2)+' اجرای رایگان استفاده شد.</p></div>' +
     '<label class="field"><span class="field-label">کد لایسنس</span><input type="text" id="quotaLicenseInput" placeholder="کد لایسنس" onkeydown="if(event.key===\'Enter\')submitQuotaLicense();" /></label>' +
     (S.wiz.licenseError?'<div class="field-error">'+esc(S.wiz.licenseError)+'</div>':'') +
-    '<div class="btn-row start"><button class="btn btn-gold" onclick="submitQuotaLicense()" '+(S.wiz.licenseChecking?'disabled':'')+'>'+ic('key',15)+'<span>'+(S.wiz.licenseChecking?'در حال بررسی...':'تأیید')+'</span></button></div></div>';
+    '<div class="btn-row start"><button class="btn btn-gold" onclick="submitQuotaLicense()" '+(S.wiz.licenseChecking?'disabled':'')+'>'+ic('key',15)+'<span>'+(S.wiz.licenseChecking?'در حال بررسی...':'تأیید')+'</span></button></div>' +
+    renderLicenseHelper('quota') + '</div>';
 }
 
 function renderLicenseGateStep(){
   return '<div class="card narrow"><div class="lock-wrap"><div class="lock-badge">'+ic('key',22,'#E7C878')+'</div><h2>ورود کد لایسنس</h2>' +
-    '<p>برای مشاهدهٔ جرایم، کد لایسنس را وارد کنید.</p></div>' +
+    '<p>سهمیهٔ اجرای رایگان شما تمام شده؛ برای مشاهدهٔ جرایم و بخشودگی‌ها کد لایسنس را وارد کنید.</p></div>' +
     '<label class="field"><span class="field-label">کد لایسنس</span><input type="text" id="licenseInputEl" value="'+esc(S.wiz.licenseInput)+'" oninput="S.wiz.licenseInput=this.value" placeholder="کد لایسنس" onkeydown="if(event.key===\'Enter\')submitLicense();" /></label>' +
     (S.wiz.licenseError?'<div class="field-error">'+esc(S.wiz.licenseError)+'</div>':'') +
-    '<div class="btn-row start"><button class="btn btn-ghost" onclick="goStep(\'obligations\')">بازگشت</button><button class="btn btn-gold" '+(S.wiz.licenseChecking?'disabled':'')+' onclick="submitLicense()">'+ic('key',15)+'<span>'+(S.wiz.licenseChecking?'در حال بررسی...':'تأیید')+'</span></button></div></div>';
+    '<div class="btn-row start"><button class="btn btn-ghost" onclick="goStep(\'obligations\')">بازگشت</button><button class="btn btn-gold" '+(S.wiz.licenseChecking?'disabled':'')+' onclick="submitLicense()">'+ic('key',15)+'<span>'+(S.wiz.licenseChecking?'در حال بررسی...':'تأیید')+'</span></button></div>' +
+    renderLicenseHelper('penalties-gate') + '</div>';
 }
 
 function renderStepQuestions(){
@@ -749,8 +853,8 @@ function renderStepConsult(){
       (meta.whatsapp?'<a href="https://wa.me/'+meta.whatsapp.replace(/\D/g,'')+'" target="_blank" rel="noopener" class="btn" style="background:var(--green-soft);color:var(--green);">'+ic('whatsapp',15)+'<span>واتس‌اپ</span></a>':'') +
     '</div><div class="grid3" style="margin-bottom:20px;">'+plansHtml+'</div>' +
     '<div class="block" style="margin-bottom:20px;"><div style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:13.5px;margin-bottom:6px;">'+ic('branch',15,'var(--gold)')+'<span>سؤال و جواب آنلاین</span></div>' +
-    '<div class="small-muted" style="margin-bottom:10px;">چت با منابع تخصصی، بررسی مدارک توسط کارشناس، یا استعلام وضعیت پرونده — بدون نیاز به تماس تلفنی. '+(isLicenseVerified()?'':'پس از دریافت لایسنس در دسترس است.')+'</div>' +
-    '<button class="btn btn-gold btn-sm" '+(isLicenseVerified()?'':'disabled')+' onclick="go(\'wizard/services\')">'+ic('left',13)+'<span>مشاهدهٔ خدمات آنلاین</span></button></div>' +
+    '<div class="small-muted" style="margin-bottom:10px;">چت با منابع تخصصی (چند سؤال رایگان)، بررسی مدارک توسط کارشناس، یا استعلام وضعیت پرونده — بدون نیاز به تماس تلفنی.</div>' +
+    '<button class="btn btn-services btn-sm" onclick="go(\'wizard/services\')">'+ic('left',13)+'<span>مشاهدهٔ خدمات آنلاین</span></button></div>' +
     formOrSuccess +
     '<div class="btn-row"><button class="btn btn-ghost" onclick="goStep(\'layeha\')">'+ic('right',15)+'<span>بازگشت</span></button>' +
     '<button class="btn btn-ghost" onclick="restartWizard()"><span>شروع دوباره</span>'+ic('left',15)+'</button></div></div>';
@@ -778,12 +882,13 @@ async function ensureMyDataLoaded(){
 
 function renderServicesArea(){
   var view = S.wiz.serviceView;
-  if (!isLicenseVerified()) {
-    return '<div class="card narrow"><div class="lock-wrap"><div class="lock-badge">'+ic('lock',22,'#E7C878')+'</div><h2>نیاز به لایسنس</h2><p>برای استفاده از خدمات آنلاین ابتدا باید لایسنس فعال داشته باشید.</p></div>' +
-      '<div class="btn-row start"><button class="btn btn-ghost" onclick="go(\'wizard/consult\')">'+ic('right',15)+'<span>بازگشت</span></button></div></div>';
-  }
   if (!view) return renderServicesHub();
   if (view==='chat') return renderServiceChat();
+  if (!isLicenseVerified()) {
+    return '<div class="card narrow"><div class="lock-wrap"><div class="lock-badge">'+ic('lock',22,'#E7C878')+'</div><h2>نیاز به لایسنس</h2><p>این خدمت پس از دریافت لایسنس در دسترس است.</p></div>' +
+      renderLicenseHelper('service-'+view) +
+      '<div class="btn-row start"><button class="btn btn-ghost" onclick="go(\'wizard/services\')">'+ic('right',15)+'<span>بازگشت به خدمات</span></button></div></div>';
+  }
   if (view==='upload') return renderServiceUpload();
   if (view==='case') return renderServiceCase();
   if (view==='reminder') return renderServiceReminder();
@@ -793,7 +898,7 @@ function renderServicesArea(){
 
 function renderServicesHub(){
   var cards = [
-    { key:'chat', icon:'search', title:'چت با منابع تخصصی', desc:'جست‌وجو در منابعی که کارشناسان ما تهیه کرده‌اند — نه هوش مصنوعی.' },
+    { key:'chat', icon:'search', title:'چت با منابع تخصصی', desc:'جست‌وجو در منابعی که کارشناسان ما تهیه کرده‌اند — نه هوش مصنوعی آزاد.', freeNote:true },
     { key:'upload', icon:'doc', title:'مشاورهٔ آنلاین با بررسی مدارک', desc:'برگ تشخیص یا مدارک خود را برای بررسی کارشناس آپلود کنید.' },
     { key:'case', icon:'inbox', title:'بررسی وضعیت پروندهٔ مالیاتی', desc:'با شمارهٔ پرونده یا موبایل، از وضعیت پروندهٔ خود مطلع شوید.' },
     { key:'reminder', icon:'calendar', title:'یادآور شخصی‌سازی‌شدهٔ مواعد', desc:'پیش از رسیدن موعد هر تکلیف، به شما اطلاع می‌دهیم.' },
@@ -801,8 +906,9 @@ function renderServicesHub(){
   ];
   var html = cards.map(function(c){
     var plan = servicePlan(c.key);
+    var badge = c.freeNote ? '<span class="badge badge-green">'+toFa((CATALOG.meta&&CATALOG.meta.chatFreeLimit)||2)+' سؤال رایگان</span>' : (isLicenseVerified() ? servicePriceBadge(plan) : '<span class="badge badge-ink">'+ic('lock',11)+' نیاز به لایسنس</span>');
     return '<button class="choice-card" style="text-align:right;" onclick="go(\'wizard/services/'+c.key+'\')">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;">'+ic(c.icon,24,'#B8862E')+servicePriceBadge(plan)+'</div>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;">'+ic(c.icon,24,'#B8862E')+badge+'</div>' +
       '<div class="title" style="margin-top:8px;">'+esc(c.title)+'</div><div class="desc">'+esc(c.desc)+'</div></button>';
   }).join('');
   return '<div class="card"><div class="section-eyebrow">خدمات آنلاین</div><div class="section-title"><h2>چه کمکی نیاز دارید؟</h2></div>' +
@@ -818,29 +924,58 @@ function renderServiceBackBtn(){
   return '<div class="btn-row"><button class="btn btn-ghost" onclick="go(\'wizard/services\')">'+ic('right',15)+'<span>بازگشت به خدمات</span></button></div>';
 }
 
-// ---- ۱. چت با منابع (جست‌وجوی کلیدواژه‌ای، بدون هوش مصنوعی) ----
+// ---- ۱. چت با منابع (فقط از پایگاه دانش — بدون هوش مصنوعی پولی؛ حداکثر ۲ سؤال رایگان) ----
 function renderServiceChat(){
-  var results = S.wiz.kbResults;
+  if (S.wiz.kbRequireLicense) {
+    return '<div class="card">'+renderServiceHeader('چت با منابع تخصصی', 'chat') +
+      '<div class="lock-wrap" style="margin-top:6px;"><div class="lock-badge">'+ic('lock',22,'#E7C878')+'</div><h2>سقف سؤالات رایگان تمام شد</h2><p>برای ادامهٔ چت با منابع، لایسنس لازم است.</p></div>' +
+      '<label class="field"><span class="field-label">کد لایسنس</span><input type="text" id="chatLicenseInput" placeholder="کد لایسنس" onkeydown="if(event.key===\'Enter\')submitChatLicense();" /></label>' +
+      (S.wiz.licenseError?'<div class="field-error">'+esc(S.wiz.licenseError)+'</div>':'') +
+      '<div class="btn-row start"><button class="btn btn-gold" '+(S.wiz.licenseChecking?'disabled':'')+' onclick="submitChatLicense()">'+ic('key',15)+'<span>'+(S.wiz.licenseChecking?'در حال بررسی...':'تأیید')+'</span></button></div>' +
+      renderLicenseHelper('chat') + '</div>' + renderServiceBackBtn();
+  }
   var resultsHtml = '';
   if (S.wiz.kbSearching) resultsHtml = '<p class="muted">در حال جست‌وجو...</p>';
-  else if (results && results.length===0) resultsHtml = '<p class="muted">نتیجه‌ای یافت نشد. عبارت دیگری را امتحان کنید.</p>';
-  else if (results) resultsHtml = '<div class="stack">'+results.map(function(r){
-    return '<div class="block"><div style="font-weight:800;font-size:13.5px;">'+esc(r.title)+'</div><div class="small-muted" style="margin-top:6px;line-height:1.9;">'+esc(r.content)+'</div></div>';
-  }).join('')+'</div>';
+  else if (S.wiz.kbAnswer) {
+    var a = S.wiz.kbAnswer;
+    if (!a.found) {
+      resultsHtml = '<div class="alert-box error">'+ic('alert',14)+'<span>'+esc(a.message||'در منابع موجود پاسخی برای این سؤال یافت نشد.')+'</span></div>';
+    } else if (a.grounded) {
+      resultsHtml = '<div class="block"><div class="small-muted" style="margin-bottom:6px;">'+ic('shield',12,'var(--green)')+' پاسخ فقط بر اساس منابع (هوش مصنوعی رایگان)</div>' +
+        '<div style="line-height:2;white-space:pre-wrap;">'+esc(a.answer)+'</div>' +
+        (a.sources&&a.sources.length?'<div class="small-muted" style="margin-top:10px;">منابع: '+a.sources.map(function(s){return esc(s.title);}).join('، ')+'</div>':'') + '</div>';
+    } else {
+      resultsHtml = '<div class="stack">'+(a.results||[]).map(function(r){
+        return '<div class="block"><div style="font-weight:800;font-size:13.5px;">'+esc(r.title)+'</div><div class="small-muted" style="margin-top:6px;line-height:1.9;">'+esc(r.content)+'</div></div>';
+      }).join('')+'</div>';
+    }
+  }
+  var remainNote = (S.wiz.kbRemaining!=null && !isLicenseVerified()) ? '<div class="small-muted" style="margin-top:10px;">'+toFa(S.wiz.kbRemaining)+' سؤال رایگان دیگر باقی مانده.</div>' : '';
   return '<div class="card">'+renderServiceHeader('چت با منابع تخصصی', 'chat') +
-    '<div class="alert-box info" style="margin-bottom:14px;">'+ic('info',14)+'<span>این بخش صرفاً در منابعی که کارشناسان ما از قبل تهیه کرده‌اند جست‌وجو می‌کند و پاسخ هوش مصنوعی نیست.</span></div>' +
+    '<div class="alert-box info" style="margin-bottom:14px;">'+ic('info',14)+'<span>این بخش فقط در منابعی که کارشناسان ما تهیه کرده‌اند پاسخ می‌جوید و چیزی از خودش نمی‌سازد؛ اگر پاسخ در منابع نباشد، همین را به شما می‌گوید.</span></div>' +
     '<div class="search-wrap" style="margin-bottom:14px;"><span class="search-icon">'+ic('search',15)+'</span><input type="text" value="'+esc(S.wiz.kbQuery)+'" oninput="S.wiz.kbQuery=this.value" onkeydown="if(event.key===\'Enter\')doKbSearch();" placeholder="مثلاً: گروه‌بندی مودیان" /></div>' +
-    '<button class="btn btn-gold btn-sm" style="margin-bottom:16px;" onclick="doKbSearch()">'+ic('search',13)+'<span>جست‌وجو</span></button>' +
-    resultsHtml + '</div>' + renderServiceBackBtn();
+    '<button class="btn btn-gold btn-sm" style="margin-bottom:16px;" '+(S.wiz.kbSearching?'disabled':'')+' onclick="doKbSearch()">'+ic('search',13)+'<span>پرسیدن</span></button>' +
+    resultsHtml + remainNote + '</div>' + renderServiceBackBtn();
 }
 async function doKbSearch(){
-  S.wiz.kbSearching = true; render();
+  if (!S.wiz.kbQuery || !S.wiz.kbQuery.trim()) return;
+  S.wiz.kbSearching = true; S.wiz.kbAnswer=null; render();
   try{
-    var r = await Api.kbSearch(S.wiz.kbQuery);
-    S.wiz.kbResults = r.results || [];
+    var r = await Api.kbAnswer(S.wiz.kbQuery, S.authPhone, isLicenseVerified());
     apiStatus='online';
-  }catch(e){ apiStatus='offline'; S.wiz.kbResults = []; }
+    if (r.requireLicense) { S.wiz.kbRequireLicense = true; }
+    else { S.wiz.kbAnswer = r; S.wiz.kbRemaining = r.remaining; }
+  }catch(e){ apiStatus='offline'; S.wiz.kbAnswer = { found:false, message:'خطا در برقراری ارتباط با سرور.' }; }
   S.wiz.kbSearching = false; render();
+}
+async function submitChatLicense(){
+  var el=document.getElementById('chatLicenseInput'); var code=el?el.value.trim():'';
+  S.wiz.licenseChecking = true; render();
+  try{
+    var r = await Api.verifyLicense(code); apiStatus='online';
+    if (r.valid) { lsSet('license_ok', code); S.wiz.licenseError=''; S.wiz.kbRequireLicense=false; S.wiz.licenseChecking=false; render(); }
+    else { S.wiz.licenseError='کد نامعتبر است.'; S.wiz.licenseChecking=false; render(); }
+  }catch(e){ apiStatus='offline'; S.wiz.licenseChecking=false; S.wiz.licenseError='خطا در برقراری ارتباط با سرور.'; render(); }
 }
 
 // ---- ۲. مشاورهٔ آنلاین با آپلود مدرک ----
@@ -1054,6 +1189,7 @@ var ADMIN_TABS = [
   {id:'audit', label:'چک‌لیست حسابرسی', icon:'check'},
   {id:'leads', label:'درخواست‌ها', icon:'inbox'},
   {id:'serviceRequests', label:'درخواست خدمات', icon:'inbox'},
+  {id:'licenseRequests', label:'درخواست لایسنس', icon:'phone'},
   {id:'licenses', label:'لایسنس‌ها', icon:'key'},
   {id:'settings', label:'تنظیمات', icon:'settings'},
   {id:'guide', label:'راهنما', icon:'book'}
@@ -1075,6 +1211,7 @@ function renderAdminPanel(){
   else if(S.adminTab==='audit') body=renderAuditAdmin();
   else if(S.adminTab==='leads') body=renderLeadsAdmin();
   else if(S.adminTab==='serviceRequests') body=renderServiceRequestsAdmin();
+  else if(S.adminTab==='licenseRequests') body=renderLicenseRequestsAdmin();
   else if(S.adminTab==='licenses') body=renderLicensesAdmin();
   else if(S.adminTab==='settings') body=renderSettingsAdmin();
   else if(S.adminTab==='guide') body=renderGuideAdmin();
@@ -1334,19 +1471,105 @@ function renderKbAdmin(){
   var d=S.adminData; d.knowledgeBase = d.knowledgeBase || [];
   var formHtml='';
   if(S.formType==='kbItem'){
-    var f=S.form;
+    var f=S.form; f.sourceType = f.sourceType || 'text';
+    var typeOptions = [
+      {v:'text', l:'متن دستی'}, {v:'pdf', l:'فایل PDF'}, {v:'image', l:'عکس (OCR)'}, {v:'excel', l:'فایل اکسل'}, {v:'link', l:'لینک وب'}
+    ].map(function(o){ return '<option value="'+o.v+'" '+(f.sourceType===o.v?'selected':'')+'>'+o.l+'</option>'; }).join('');
+    var extractorHtml = '';
+    if (f.sourceType==='pdf') extractorHtml = '<label class="field"><span class="field-label">فایل PDF</span><input type="file" accept="application/pdf" onchange="onKbExtractFile(\'pdf\', this)" /></label>';
+    else if (f.sourceType==='image') extractorHtml = '<label class="field"><span class="field-label">فایل عکس</span><input type="file" accept="image/*" onchange="onKbExtractFile(\'image\', this)" /></label><div class="small-muted">استخراج متن از عکس (OCR) ممکن است چند ثانیه طول بکشد.</div>';
+    else if (f.sourceType==='excel') extractorHtml = '<label class="field"><span class="field-label">فایل اکسل</span><input type="file" accept=".xlsx,.xls,.csv" onchange="onKbExtractFile(\'excel\', this)" /></label>';
+    else if (f.sourceType==='link') extractorHtml = '<label class="field"><span class="field-label">آدرس لینک</span><input type="text" id="kbLinkUrlInput" value="'+esc(f.sourceUrl||'')+'" placeholder="https://example.com/article" /></label><button class="btn btn-ghost btn-sm" onclick="onKbFetchLink()">'+ic('download',13)+'<span>دریافت متن از لینک</span></button>';
     formHtml='<div class="form-box"><label class="field"><span class="field-label">عنوان</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
       '<label class="field"><span class="field-label">کلیدواژه‌ها (با کاما جدا کنید)</span><input type="text" value="'+esc((f.keywords||[]).join('، '))+'" oninput="S.form.keywords=this.value.split(/[,،]/).map(function(s){return s.trim();}).filter(Boolean)" /></label>' +
-      '<label class="field"><span class="field-label">متن پاسخ / منبع</span><textarea rows="5" oninput="S.form.content=this.value">'+esc(f.content)+'</textarea></label>' +
+      '<label class="field"><span class="field-label">نوع منبع</span><select onchange="onKbSourceTypeChange(this.value)">'+typeOptions+'</select></label>' +
+      extractorHtml +
+      (S.kbExtracting?'<div class="small-muted" style="margin:8px 0;color:var(--gold);">⏳ در حال استخراج متن...</div>':'') +
+      (S.kbExtractError?'<div class="field-error" style="margin:8px 0;">'+esc(S.kbExtractError)+'</div>':'') +
+      '<label class="field" style="margin-top:8px;"><span class="field-label">متن نهایی (پس از استخراج قابل ویرایش است — فقط همین متن مبنای پاسخ‌گویی قرار می‌گیرد)</span><textarea rows="7" oninput="S.form.content=this.value">'+esc(f.content)+'</textarea></label>' +
+      (f.content?('<div class="small-muted">طول متن: '+toFa(f.content.length)+' نویسه</div>'):'') +
       '<div class="btn-row start"><button class="btn btn-primary" onclick="saveForm()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
   }
+  var typeLabels = {text:'متن', pdf:'PDF', image:'عکس', excel:'اکسل', link:'لینک'};
   var list=d.knowledgeBase.map(function(k){
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(k.title)+'</div><div class="row-sub">'+esc((k.keywords||[]).join('، '))+'</div></div>' +
+    var typeBadge = '<span class="badge badge-ink">'+(typeLabels[k.sourceType]||'متن')+'</span>';
+    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(k.title)+' '+typeBadge+'</div><div class="row-sub">'+esc((k.keywords||[]).join('، '))+' — '+toFa((k.content||'').length)+' نویسه</div></div>' +
       '<div class="row-actions"><button class="icon-btn" onclick="openEditForm(\'kbItem\',\''+k.id+'\')">'+ic('edit',14)+'</button><button class="icon-btn danger" onclick="deleteItem(\'kbItem\',\''+k.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
   }).join('');
   return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>📚 پایگاه دانش (منابع چت)</h2></div>'+(S.formType==='kbItem'?'':'<button class="btn btn-primary btn-sm" onclick="openAddForm(\'kbItem\')">'+ic('plus',13)+'<span>منبع جدید</span></button>')+'</div>' +
-    '<div class="alert-box info" style="margin-bottom:12px;">'+ic('info',14)+'<span>بخش «چت با منابع» فقط در همین متن‌ها جست‌وجوی کلیدواژه‌ای انجام می‌دهد؛ هوش مصنوعی نیست.</span></div>' +
+    '<div class="alert-box info" style="margin-bottom:12px;">'+ic('info',14)+'<span>پاسخ چت فقط از همین متن‌ها ساخته می‌شود؛ نه حدس، نه دانش عمومی. PDF/عکس/اکسل/لینک را آپلود کنید تا متنشان استخراج و اینجا نمایش داده شود، سپس در صورت نیاز ویرایش و ذخیره کنید.</span></div>' +
     formHtml+'<div class="stack">'+(list||'<p class="muted">منبعی ثبت نشده است.</p>')+'</div></div>';
+}
+function onKbSourceTypeChange(v){ S.form.sourceType=v; S.kbExtractError=''; render(); }
+async function onKbExtractFile(kind, inputEl){
+  var file = inputEl.files && inputEl.files[0];
+  if(!file) return;
+  S.form.sourceName = file.name;
+  S.kbExtracting = true; S.kbExtractError=''; render();
+  try{
+    var text = '';
+    if(kind==='pdf') text = await extractPdfText(file);
+    else if(kind==='excel') text = await extractExcelText(file);
+    else if(kind==='image') text = await extractImageText(file);
+    if(!text) throw new Error('متنی از فایل استخراج نشد.');
+    S.form.content = text.slice(0, 30000);
+  }catch(e){
+    S.kbExtractError = 'استخراج متن ناموفق بود: '+((e&&e.message)||e);
+  }
+  S.kbExtracting=false; render();
+}
+async function onKbFetchLink(){
+  var el = document.getElementById('kbLinkUrlInput');
+  var url = el?el.value.trim():'';
+  if(!url) return;
+  S.form.sourceUrl = url;
+  S.kbExtracting = true; S.kbExtractError=''; render();
+  try{
+    var r = await Api.adminFetchLink(S.adminToken, url);
+    S.form.content = (r.text||'').slice(0, 30000);
+    if(!S.form.content) throw new Error('متنی از لینک استخراج نشد.');
+  }catch(e){ S.kbExtractError = 'دریافت متن از لینک ناموفق بود.'; }
+  S.kbExtracting=false; render();
+}
+
+// ---- کتابخانه‌های استخراج متن — فقط هنگام نیاز، از CDN بارگذاری می‌شوند ----
+var __loadedScripts = {};
+function loadScript(src){
+  if (__loadedScripts[src]) return __loadedScripts[src];
+  __loadedScripts[src] = new Promise(function(resolve, reject){
+    var s = document.createElement('script');
+    s.src = src; s.onload = function(){ resolve(); }; s.onerror = function(){ reject(new Error('بارگذاری کتابخانه ناموفق بود.')); };
+    document.head.appendChild(s);
+  });
+  return __loadedScripts[src];
+}
+async function extractPdfText(file){
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js');
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+  var buf = await file.arrayBuffer();
+  var pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+  var text = '';
+  for (var i=1; i<=pdf.numPages; i++){
+    var page = await pdf.getPage(i);
+    var content = await page.getTextContent();
+    text += content.items.map(function(it){ return it.str; }).join(' ') + '\n\n';
+  }
+  return text.trim();
+}
+async function extractExcelText(file){
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+  var buf = await file.arrayBuffer();
+  var wb = window.XLSX.read(buf, { type:'array' });
+  var out = [];
+  wb.SheetNames.forEach(function(name){
+    out.push('--- '+name+' ---\n'+window.XLSX.utils.sheet_to_csv(wb.Sheets[name]));
+  });
+  return out.join('\n\n').trim();
+}
+async function extractImageText(file){
+  await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
+  var result = await window.Tesseract.recognize(file, 'fas+eng');
+  return ((result && result.data && result.data.text) || '').trim();
 }
 
 // ============================================================
@@ -1397,6 +1620,24 @@ async function downloadServiceFile(fileId, filename){
     var a = document.createElement('a'); a.href=url; a.download = f.filename || filename || 'file'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }catch(e){ alert('دانلود فایل ناموفق بود.'); }
 }
+
+// ============================================================
+// درخواست‌های تماس برای دریافت لایسنس
+// ============================================================
+function renderLicenseRequestsAdmin(){
+  var d=S.adminData; d.licenseRequests = d.licenseRequests || [];
+  var ctxLabels = {quota:'سقف اجرای رایگان', 'penalties-gate':'گیت مشاهدهٔ جرایم', chat:'سقف سؤالات چت'};
+  var list = d.licenseRequests.slice().reverse().map(function(r){
+    var ctx = ctxLabels[r.context] || (r.context && r.context.indexOf('service-')===0 ? 'خدمت آنلاین: '+r.context.replace('service-','') : r.context) || '-';
+    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(r.name)+' — '+esc(r.phone)+'</div>' +
+      '<div class="row-sub">درخواست از: '+esc(ctx)+' — '+new Date(r.createdAt).toLocaleString('fa-IR')+'</div></div>' +
+      '<div class="row-actions"><button class="icon-btn danger" onclick="deleteLicenseRequest(\''+r.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
+  }).join('');
+  return '<div class="card"><div class="section-title tight"><h2>📞 درخواست‌های تماس برای لایسنس</h2></div>' +
+    '<div class="small-muted" style="margin-bottom:12px;">وقتی کاربری به سقف رایگان می‌رسد و دکمهٔ «درخواست تماس» را می‌زند، اینجا و در ایمیل شما ثبت می‌شود.</div>' +
+    '<div class="stack">'+(list||'<p class="muted">درخواستی ثبت نشده است.</p>')+'</div></div>';
+}
+async function deleteLicenseRequest(id){ if(!confirm('حذف شود؟')) return; S.adminData.licenseRequests = S.adminData.licenseRequests.filter(function(r){return r.id!==id;}); await persistAndRender(); }
 
 // ============================================================
 // درخواست‌ها (لیدها)
@@ -1489,11 +1730,16 @@ function renderSettingsAdmin(){
     '<label class="field"><span class="field-label">شماره تماس</span><input type="text" id="phoneInput" value="'+esc(m.phone)+'" /></label>' +
     '<label class="field"><span class="field-label">واتس‌اپ</span><input type="text" id="whatsappInput" value="'+esc(m.whatsapp||'')+'" placeholder="989121234567" /></label>' +
     '<label class="field"><span class="field-label">ایمیل دریافت درخواست‌ها</span><input type="text" id="notifyEmailInput" value="'+esc(m.notifyEmail||'')+'" /></label>' +
-    '<label class="field"><span class="field-label">استعلام رایگان</span><input type="number" id="freeQueryLimitInput" value="'+esc(m.freeQueryLimit!=null?m.freeQueryLimit:3)+'" min="0" /></label>' +
+    '<label class="field"><span class="field-label">تعداد اجرای کامل رایگان (قبل از نیاز به لایسنس)</span><input type="number" id="freeQueryLimitInput" value="'+esc(m.freeQueryLimit!=null?m.freeQueryLimit:2)+'" min="0" /></label>' +
+    '<label class="field"><span class="field-label">تعداد سؤال رایگان در چت با منابع (قبل از نیاز به لایسنس)</span><input type="number" id="chatFreeLimitInput" value="'+esc(m.chatFreeLimit!=null?m.chatFreeLimit:2)+'" min="0" /></label>' +
     '<label class="field"><span class="field-label">متن تبلیغاتی (نوار متحرک)</span><textarea id="adTextInput" rows="2">'+esc(m.adText||'')+'</textarea></label>' +
     '<label class="checkbox-row"><input type="checkbox" id="adEnabledInput" '+(m.adEnabled!==false?'checked':'')+' /><span>نمایش نوار تبلیغاتی</span></label>' +
     '<label class="field"><span class="field-label">متن شرایط و قوانین (هنگام ورود کاربر نمایش داده می‌شود)</span><textarea id="termsTextInput" rows="4">'+esc(m.termsText||'')+'</textarea></label>' +
     '<div class="btn-row start"><button class="btn btn-primary" onclick="saveSettings()">ذخیره</button>'+(S.settingsSaved?'<span class="small-muted" style="color:var(--green);">✅ ذخیره شد</span>':'')+'</div></div>' +
+    '<div class="block" style="margin-top:18px;"><div style="font-weight:800;font-size:13.5px;margin-bottom:6px;">🤖 پاسخ‌گویی هوشمند چت با منابع</div>' +
+    '<div class="small-muted" style="margin-bottom:10px;">با فعال‌کردن این گزینه، پاسخ چت با کمک Cloudflare Workers AI (رایگان در سهمیهٔ روزانه، بدون کلید یا حساب جداگانه) نوشته می‌شود — ولی همیشه فقط بر اساس متن پایگاه دانش، بدون حدس؛ اگر پاسخ در منابع نباشد، صادقانه اعلام می‌کند. برای کارکردن این گزینه، باید در تنظیمات Worker خودتان (Settings → Bindings) یک Workers AI Binding با نام <code class="tpl-var">AI</code> اضافه کرده باشید؛ در غیر این صورت چت بدون هوش مصنوعی و فقط با نمایش بریدهٔ خام منابع کار می‌کند (که آن هم کاملاً قابل اتکاست، فقط خلاصه‌تر است).</div>' +
+    '<label class="checkbox-row"><input type="checkbox" id="aiAnswersEnabledInput" '+(m.aiAnswersEnabled?'checked':'')+' /><span>فعال‌سازی پاسخ‌گویی هوشمند مبتنی بر منابع</span></label>' +
+    '<div class="btn-row start"><button class="btn btn-primary" onclick="saveSettings()">ذخیره</button></div></div>' +
     '<div class="block" style="margin-top:18px;"><div style="font-weight:800;font-size:13.5px;margin-bottom:10px;">🔔 تنظیمات یادآور مواعد</div>' +
     '<label class="checkbox-row"><input type="checkbox" id="reminderEmailEnabledInput" '+((m.reminderSettings&&m.reminderSettings.emailEnabled!==false)?'checked':'')+' /><span>ارسال یادآور از طریق ایمیل</span></label>' +
     '<label class="field" style="margin-top:8px;"><span class="field-label">چند روز قبل از موعد یادآوری ارسال شود؟</span><input type="number" id="reminderWindowInput" value="'+esc((m.reminderSettings&&m.reminderSettings.reminderWindowDays!=null)?m.reminderSettings.reminderWindowDays:3)+'" min="0" /></label>' +
@@ -1523,14 +1769,16 @@ async function reseedContent(){
   S.reseedLoading = false; render();
 }
 async function saveSettings(){
-  var ids=['brandNameInput','taglineInput','seoDescInput','phoneInput','whatsappInput','notifyEmailInput','adTextInput','freeQueryLimitInput','termsTextInput','reminderWindowInput','smsApiKeyInput','smsSenderInput'];
+  var ids=['brandNameInput','taglineInput','seoDescInput','phoneInput','whatsappInput','notifyEmailInput','adTextInput','freeQueryLimitInput','chatFreeLimitInput','termsTextInput','reminderWindowInput','smsApiKeyInput','smsSenderInput'];
   var vals={}; ids.forEach(function(id){ var el=document.getElementById(id); if(el) vals[id]=el.value; });
   var m=S.adminData.meta;
   m.brandName=vals.brandNameInput||m.brandName; m.tagline=vals.taglineInput||''; m.seoDescription=vals.seoDescInput||'';
   m.phone=vals.phoneInput||''; m.whatsapp=vals.whatsappInput||''; m.notifyEmail=vals.notifyEmailInput||'';
   m.adText=vals.adTextInput||''; m.freeQueryLimit=Math.max(0,parseInt(vals.freeQueryLimitInput,10)||0);
+  m.chatFreeLimit=Math.max(0,parseInt(vals.chatFreeLimitInput,10)||0);
   m.termsText=vals.termsTextInput||m.termsText;
   var adEl=document.getElementById('adEnabledInput'); m.adEnabled=adEl?adEl.checked:true;
+  var aiEl=document.getElementById('aiAnswersEnabledInput'); m.aiAnswersEnabled=aiEl?aiEl.checked:false;
   m.reminderSettings = m.reminderSettings || {};
   var remEmailEl=document.getElementById('reminderEmailEnabledInput'); m.reminderSettings.emailEnabled = remEmailEl?remEmailEl.checked:true;
   m.reminderSettings.reminderWindowDays = Math.max(0, parseInt(vals.reminderWindowInput,10)||3);
@@ -1558,7 +1806,7 @@ var EMPTY_MAKERS={
   penalty:function(){ return {id:genId('p'), title:'', description:'', calcType:'fixed', value:0, amnestyEligible:false, amnestyPercent:0, amnestyCondition:'', installmentEligible:false, maxInstallments:1, legalArticle:''}; },
   template:function(){ return {id:genId('t'), title:'', body:''}; },
   plan:function(){ return {id:genId('pl'), title:'', price:0, duration:'', desc:''}; },
-  kbItem:function(){ return {id:genId('kb'), title:'', keywords:[], content:''}; },
+  kbItem:function(){ return {id:genId('kb'), title:'', keywords:[], content:'', sourceType:'text', sourceName:'', sourceUrl:''}; },
   auditItem:function(){ return {id:genId('ac'), title:''}; }
 };
 var COLL_KEY={obligation:'obligations', penalty:'penalties', template:'templates', plan:'plans', kbItem:'knowledgeBase', auditItem:'auditChecklist'};
@@ -1592,6 +1840,8 @@ function renderMultiCheck(allItems, selectedIds, field){
 async function boot(){
   onRoute();
   restoreAuthSession();
+  initPwaInstall();
+  registerServiceWorker();
   render();
 
   try{
