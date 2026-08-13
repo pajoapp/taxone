@@ -1,0 +1,17 @@
+{
+  "name": "دستیار تکالیف مالیاتی",
+  "short_name": "دستیار مالیاتی",
+  "description": "تکالیف، مواعد، جرایم و بخشودگی‌های مالیاتی شما به همراه مواد قانونی",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F4EC",
+  "theme_color": "#1B2A45",
+  "lang": "fa",
+  "dir": "rtl",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
