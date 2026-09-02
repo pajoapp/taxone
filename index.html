@@ -150,12 +150,17 @@ svg.ic{flex-shrink:0;}
 .badge-green{background:var(--green-soft);color:var(--green);}
 .badge-ink{background:var(--paper-alt);color:var(--ink);}
 
-/* نوار تبلیغاتی — ساکن و کم‌رنگ، هم‌راستا با ظاهر خلوت و حرفه‌ای برنامه */
-.ad-banner{
-  display:flex; align-items:center; gap:8px;
-  background:var(--paper-alt); color:var(--ink-soft);
-  border-radius:12px; margin:14px 0; padding:10px 12px; font-size:12.5px; font-weight:600;
+/* کارت پیشنهاد ویژه — کارتی آرام و حرفه‌ای، فقط در نقطهٔ نتیجه (نه بالای صفحه) */
+.offer-card{
+  display:flex; align-items:center; gap:12px;
+  background:var(--card); border:1px solid var(--line); border-inline-start:3px solid var(--gold);
+  border-radius:14px; margin:18px 0; padding:13px 16px;
 }
+.offer-icon{flex-shrink:0;width:36px;height:36px;border-radius:10px;background:var(--paper-alt);display:flex;align-items:center;justify-content:center;}
+.offer-body{flex:1;min-width:0;}
+.offer-title{font-weight:800;font-size:13px;color:var(--ink);margin-bottom:2px;}
+.offer-sub{font-size:11.5px;color:var(--ink-soft);}
+@media (max-width:420px){ .offer-card{flex-wrap:wrap;} .offer-sub{display:none;} }
 
 .quota-pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--paper-alt);color:var(--ink-soft);margin-bottom:10px;}
 .error-banner{font-size:12px;border-radius:12px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px;background:#3a1414;color:#ffd7d0;margin:0 0 14px;}
@@ -313,7 +318,10 @@ var Api = {
   saveObligations(phone, personType, obligationIds){ return this._fetch('/api/obligations/save', { method:'POST', body:{phone:phone, personType:personType, obligationIds:obligationIds} }); },
   adminGetFile(token, fileId){ return this._fetch('/api/admin/file?id='+encodeURIComponent(fileId), { headers:{ 'Authorization':'Bearer '+token } }); },
   adminFetchLink(token, url){ return this._fetch('/api/admin/fetch-link', { method:'POST', headers:{ 'Authorization':'Bearer '+token }, body:{url:url} }); },
-  me(phone){ return this._fetch('/api/me', { method:'POST', body:{phone:phone} }); }
+  me(phone){ return this._fetch('/api/me', { method:'POST', body:{phone:phone} }); },
+  adminBackups(token){ return this._fetch('/api/admin/backups', { headers:{ 'Authorization':'Bearer '+token } }); },
+  adminBackupGet(token, key){ return this._fetch('/api/admin/backup?key='+encodeURIComponent(key), { headers:{ 'Authorization':'Bearer '+token } }); },
+  adminRestore(token, key){ return this._fetch('/api/admin/restore', { method:'POST', headers:{ 'Authorization':'Bearer '+token }, body:{key:key} }); }
 };
 
 // ============================================================
@@ -473,16 +481,23 @@ function renderHeader(){
   '</div></header>';
 }
 
-function renderAdMarquee(){
-  var m = CATALOG.meta || {};
-  if (!m.adEnabled || !m.adText) return '';
-  return '<div class="ad-banner" role="note" aria-label="اطلاعیه">'+ic('trend',13,'var(--gold)')+'<span>'+esc(m.adText)+'</span></div>';
-}
-
 function renderDisclaimer(){
   var err = (apiStatus==='offline') ? '<div class="error-banner">'+ic('alert',15)+'<span>⚠️ اتصال به سرور برقرار نیست. لطفاً اتصال اینترنت را بررسی کنید.</span></div>' : '';
   var note = '<div class="disclaimer">'+ic('shield',15)+'<span>مالیار یک ابزار راهنماست و جایگزین مشاورهٔ رسمی مالیاتی نیست؛ برای اقدامات قانونی حتماً با کارشناس مالیاتی هماهنگ کنید.</span></div>';
-  return note+err+(S.route==='user'?renderAdMarquee():'');
+  return note+err;
+}
+
+// کارت پیشنهاد ویژه — به‌جای نوار بالای صفحه، فقط در نقطه‌ای که کاربر
+// نتیجهٔ محاسبات را دیده (بیشترین آمادگی برای اقدام) نمایش داده می‌شود.
+function renderOfferCard(){
+  var m = CATALOG.meta || {};
+  if (!m.adEnabled || !m.adText) return '';
+  return '<div class="offer-card">' +
+    '<div class="offer-icon">'+ic('shield',18,'var(--gold)')+'</div>' +
+    '<div class="offer-body"><div class="offer-title">'+esc(m.adText)+'</div>' +
+    '<div class="offer-sub">کارشناسان مالیار در کوتاه‌ترین زمان پاسخ‌گوی شما هستند.</div></div>' +
+    '<button class="btn btn-gold btn-sm" onclick="goStep(\'consult\')">مشاوره</button>' +
+  '</div>';
 }
 
 function renderFooter(){
@@ -814,6 +829,7 @@ function renderStepCalc(){
     '<div class="summary-box"><div class="summary-row"><span>جمع کل</span><span>'+toman(totalRawAmount())+'</span></div><div class="summary-row"><span>با بخشودگی</span><span style="color:var(--gold-light);">'+toman(totalAmnestyAmount())+'</span></div></div>' +
     '<div style="display:flex;align-items:flex-start;gap:6px;font-size:12px;color:var(--ink-soft);margin-top:4px;">'+ic('info',14)+'<span>ارقام برآوردی هستند و باید توسط کارشناس نهایی شود.</span></div></div>';
   return '<div class="card"><div class="section-eyebrow">گام چهارم</div><div class="section-title"><h2>جمع‌بندی جرایم</h2></div>'+body +
+    renderOfferCard() +
     '<div class="btn-row"><button class="btn btn-ghost" onclick="goStep(\'penalties\')">'+ic('right',15)+'<span>بازگشت</span></button>' +
     '<button class="btn btn-primary" onclick="onEnterLayeha()"><span>مرحله بعد: لایحه</span>'+ic('left',15)+'</button></div></div>';
 }
@@ -1196,6 +1212,7 @@ var ADMIN_TABS = [
   {id:'licenseRequests', label:'درخواست فعال‌سازی', icon:'phone'},
   {id:'licenses', label:'کدهای فعال‌سازی', icon:'key'},
   {id:'settings', label:'تنظیمات', icon:'settings'},
+  {id:'backups', label:'پشتیبان‌گیری', icon:'download'},
   {id:'guide', label:'راهنما', icon:'book'}
 ];
 
@@ -1218,6 +1235,7 @@ function renderAdminPanel(){
   else if(S.adminTab==='licenseRequests') body=renderLicenseRequestsAdmin();
   else if(S.adminTab==='licenses') body=renderLicensesAdmin();
   else if(S.adminTab==='settings') body=renderSettingsAdmin();
+  else if(S.adminTab==='backups') body=renderBackupsAdmin();
   else if(S.adminTab==='guide') body=renderGuideAdmin();
   return tabsHtml+body;
 }
@@ -1715,6 +1733,72 @@ async function deleteLicense(code){ if(!confirm('حذف شود؟')) return; S.ad
 async function toggleDefaultLicense(checked){ S.adminData.meta.defaultLicenseEnabled=checked; await persistAndRender(); }
 async function saveDefaultLicenseCode(){ var el=document.getElementById('defaultLicenseCodeInput'); S.adminData.meta.defaultLicenseCode=el?el.value.trim():'123'; await persistAndRender(); }
 async function clearLicenseLogs(){ if(!confirm('پاک شود؟')) return; S.adminData.licenseLogs=[]; await persistAndRender(); }
+
+// ============================================================
+// پشتیبان‌گیری
+// ============================================================
+function renderBackupsAdmin(){
+  if (!S.backupsRequested) { S.backupsRequested = true; loadBackupsList(); }
+  var listHtml;
+  if (S.backupsLoading && !(S.backupsList && S.backupsList.length)) {
+    listHtml = '<p class="muted">در حال بارگذاری فهرست نسخه‌ها...</p>';
+  } else if (S.backupsError) {
+    listHtml = '<p class="muted" style="color:var(--red);">'+esc(S.backupsError)+'</p>';
+  } else if (!S.backupsList || !S.backupsList.length) {
+    listHtml = '<p class="muted">هنوز نسخهٔ پشتیبان خودکاری ثبت نشده. اولین‌بار که تنظیمات را ذخیره کنید، یا اگر Cron روزانه فعال باشد، یک نسخه ساخته می‌شود.</p>';
+  } else {
+    listHtml = '<div class="stack">' + S.backupsList.map(function(b){
+      var d = new Date(b.at);
+      var label = isNaN(d.getTime()) ? b.at : d.toLocaleString('fa-IR');
+      return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(label)+'</div></div>' +
+        '<div class="row-actions">' +
+        '<button class="icon-btn" title="دانلود" onclick="downloadBackupByKey(\''+esc(b.key)+'\')">'+ic('download',14)+'</button>' +
+        '<button class="icon-btn" title="بازگردانی این نسخه" onclick="restoreBackup(\''+esc(b.key)+'\')">'+ic('logout',14)+'</button>' +
+        '</div></div>';
+    }).join('') + '</div>';
+  }
+  return '<div class="card"><div class="section-title tight"><h2>🗄 پشتیبان‌گیری</h2></div>' +
+    '<p class="muted" style="margin:8px 0 16px;">پیش از هر ذخیرهٔ تنظیمات، و همچنین یک‌بار در روز (در صورت فعال بودن Cron روی Worker)، یک نسخهٔ پشتیبان خودکار ساخته می‌شود. حداکثر ۱۴ نسخهٔ آخر نگه‌داری می‌شود.</p>' +
+    '<div class="btn-row start" style="margin-bottom:16px;"><button class="btn btn-primary" onclick="downloadCurrentBackup()">'+ic('download',15)+'<span>دانلود نسخهٔ فعلی (دستی)</span></button>' +
+    '<button class="btn btn-ghost" onclick="S.backupsRequested=false; render();">'+ic('trend',15)+'<span>به‌روزرسانی فهرست</span></button></div>' +
+    listHtml + '</div>';
+}
+function downloadJson(filename, data){
+  var blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function downloadCurrentBackup(){
+  downloadJson('maliyar-backup-'+(new Date().toISOString().slice(0,10))+'.json', S.adminData);
+}
+async function loadBackupsList(){
+  S.backupsLoading = true; S.backupsError = ''; render();
+  try{
+    var res = await Api.adminBackups(S.adminToken);
+    S.backupsList = res.backups || [];
+  }catch(e){ S.backupsError = 'دریافت فهرست نسخه‌های پشتیبان ناموفق بود.'; }
+  S.backupsLoading = false; render();
+}
+async function downloadBackupByKey(key){
+  try{
+    var data = await Api.adminBackupGet(S.adminToken, key);
+    downloadJson(key.replace(/[:/]/g,'-')+'.json', data);
+  }catch(e){ alert('دانلود این نسخهٔ پشتیبان ناموفق بود.'); }
+}
+async function restoreBackup(key){
+  if(!confirm('با بازگردانی این نسخه، داده‌ها و تنظیمات فعلی با این نسخهٔ قدیمی‌تر جایگزین می‌شود (وضعیت فعلی هم پیش از این کار خودکار پشتیبان‌گیری می‌شود). ادامه می‌دهید؟')) return;
+  S.backupsLoading = true; render();
+  try{
+    await Api.adminRestore(S.adminToken, key);
+    alert('بازگردانی انجام شد.');
+    S.backupsRequested = false;
+    var data = await Api.adminGetData(S.adminToken);
+    S.adminData = data;
+  }catch(e){ alert('بازگردانی ناموفق بود.'); }
+  S.backupsLoading = false; render();
+}
 
 // ============================================================
 // تنظیمات
