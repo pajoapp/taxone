@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://lively-pine-52b4.msalimabadifarahani.workers.dev; base-uri 'self'; form-action 'self'; frame-ancestors 'none';" />
 <title>مالیار | دستیار هوشمند تکالیف، مواعد و جرایم مالیاتی</title>
 <meta name="description" content="مالیار، دستیار آنلاین قابل‌اعتماد شما برای مالیات: با پاسخ به چند سوال ساده، تکالیف قانونی، مواعد، جرایم و بخشودگی‌های مالیاتی مخصوص خودتان را همراه با مواد قانونی ببینید." />
 <meta name="keywords" content="مالیار, تکالیف مالیاتی, جرایم مالیاتی, بخشودگی مالیاتی, اظهارنامه مالیاتی, سامانه مودیان, مشاور مالیاتی, قانون مالیات های مستقیم" />
@@ -191,6 +192,9 @@ svg.ic{flex-shrink:0;}
 <script>
 // ============================================================
 // ⚙️ تنظیمات — آدرس بک‌اند (Cloudflare Worker) را اینجا وارد کنید
+// اگر این آدرس را عوض کردید، همین مقدار را داخل تگ
+// Content-Security-Policy (بخش connect-src) بالای فایل هم به‌روز کنید،
+// وگرنه مرورگر اتصال به سرور را مسدود می‌کند.
 // ============================================================
 const API_BASE = 'https://lively-pine-52b4.msalimabadifarahani.workers.dev';
 
@@ -1744,8 +1748,12 @@ function renderSettingsAdmin(){
     '<label class="checkbox-row"><input type="checkbox" id="reminderEmailEnabledInput" '+((m.reminderSettings&&m.reminderSettings.emailEnabled!==false)?'checked':'')+' /><span>ارسال یادآور از طریق ایمیل</span></label>' +
     '<label class="field" style="margin-top:8px;"><span class="field-label">چند روز قبل از موعد یادآوری ارسال شود؟</span><input type="number" id="reminderWindowInput" value="'+esc((m.reminderSettings&&m.reminderSettings.reminderWindowDays!=null)?m.reminderSettings.reminderWindowDays:3)+'" min="0" /></label>' +
     '<label class="checkbox-row" style="margin-top:8px;"><input type="checkbox" id="smsEnabledInput" '+((m.reminderSettings&&m.reminderSettings.smsEnabled)?'checked':'')+' /><span>ارسال یادآور از طریق پیامک (کاوه‌نگار)</span></label>' +
-    '<div class="grid2" style="margin-top:8px;"><label class="field"><span class="field-label">کلید API کاوه‌نگار</span><input type="text" id="smsApiKeyInput" value="'+esc((m.reminderSettings&&m.reminderSettings.smsApiKey)||'')+'" /></label>' +
+    '<div class="grid2" style="margin-top:8px;"><label class="field"><span class="field-label">کلید API کاوه‌نگار</span><input type="password" id="smsApiKeyInput" value="'+esc((m.reminderSettings&&m.reminderSettings.smsApiKey)||'')+'" /></label>' +
     '<label class="field"><span class="field-label">نام فرستنده (اختیاری)</span><input type="text" id="smsSenderInput" value="'+esc((m.reminderSettings&&m.reminderSettings.smsSender)||'')+'" /></label></div>' +
+    '<div class="btn-row start"><button class="btn btn-primary" onclick="saveSettings()">ذخیره</button></div></div>' +
+    '<div class="block" style="margin-top:18px;"><div style="font-weight:800;font-size:13.5px;margin-bottom:6px;">🔒 امنیت واکشی لینک (پایگاه دانش)</div>' +
+    '<div class="small-muted" style="margin-bottom:10px;">وقتی از پنل «پایگاه دانش» یک لینک را برای استخراج محتوا وارد می‌کنید، اگر اینجا دامنه‌ای مجاز کرده باشید، فقط همان دامنه‌ها قابل واکشی هستند (برای جلوگیری از سوءاستفاده). اگر خالی بگذارید، مثل قبل هر لینکی قابل واکشی است.</div>' +
+    '<label class="field"><span class="field-label">دامنه‌های مجاز (با کاما جدا کنید — اختیاری)</span><input type="text" id="allowedFetchHostsInput" value="'+esc((m.allowedFetchHosts||[]).join(', '))+'" placeholder="intamedia.ir, rrk.ir" /></label>' +
     '<div class="btn-row start"><button class="btn btn-primary" onclick="saveSettings()">ذخیره</button></div></div>' +
     '<div class="block" style="margin-top:18px;"><div style="font-weight:800;font-size:13.5px;margin-bottom:6px;">🔄 به‌روزرسانی محتوای قانونی</div>' +
     '<div class="small-muted" style="margin-bottom:10px;">سوالات، تکالیف و جرایم را به آخرین نسخه‌ای که در کد Worker تعریف شده به‌روز می‌کند. کاربران، درخواست‌ها، کدهای فعال‌سازی و تنظیمات برند شما دست‌نخورده می‌مانند.</div>' +
@@ -1769,7 +1777,7 @@ async function reseedContent(){
   S.reseedLoading = false; render();
 }
 async function saveSettings(){
-  var ids=['brandNameInput','taglineInput','seoDescInput','phoneInput','whatsappInput','notifyEmailInput','adTextInput','freeQueryLimitInput','chatFreeLimitInput','termsTextInput','reminderWindowInput','smsApiKeyInput','smsSenderInput'];
+  var ids=['brandNameInput','taglineInput','seoDescInput','phoneInput','whatsappInput','notifyEmailInput','adTextInput','freeQueryLimitInput','chatFreeLimitInput','termsTextInput','reminderWindowInput','smsApiKeyInput','smsSenderInput','allowedFetchHostsInput'];
   var vals={}; ids.forEach(function(id){ var el=document.getElementById(id); if(el) vals[id]=el.value; });
   var m=S.adminData.meta;
   m.brandName=vals.brandNameInput||m.brandName; m.tagline=vals.taglineInput||''; m.seoDescription=vals.seoDescInput||'';
@@ -1786,6 +1794,7 @@ async function saveSettings(){
   m.reminderSettings.smsApiKey = vals.smsApiKeyInput||'';
   m.reminderSettings.smsSender = vals.smsSenderInput||'';
   m.reminderSettings.smsProvider = 'kavenegar';
+  m.allowedFetchHosts = (vals.allowedFetchHostsInput||'').split(',').map(function(s){return s.trim().toLowerCase();}).filter(Boolean);
   await persistAndRender();
   S.settingsSaved=true; render(); setTimeout(function(){ S.settingsSaved=false; render(); },1800);
 }
