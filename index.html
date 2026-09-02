@@ -302,9 +302,9 @@ var Api = {
     return data;
   },
   getData(){ return this._fetch('/api/data'); },
-  register(name, phone){ return this._fetch('/api/register', { method:'POST', body:{name:name, phone:phone} }); },
+  register(name, phone, ref){ return this._fetch('/api/register', { method:'POST', body:{name:name, phone:phone, ref:ref||''} }); },
   usage(phone){ return this._fetch('/api/usage', { method:'POST', body:{phone:phone} }); },
-  verifyLicense(code){ return this._fetch('/api/license/verify', { method:'POST', body:{code:code} }); },
+  verifyLicense(code, phone){ return this._fetch('/api/license/verify', { method:'POST', body:{code:code, phone:phone||''} }); },
   submitLead(lead){ return this._fetch('/api/leads', { method:'POST', body:lead }); },
   adminLogin(password){ return this._fetch('/api/admin/login', { method:'POST', body:{password:password} }); },
   adminGetData(token){ return this._fetch('/api/admin/data', { headers:{ 'Authorization':'Bearer '+token } }); },
@@ -506,6 +506,13 @@ function renderFooter(){
 
 function logoutUser(){ lsDel('auth_phone'); S.authPhone=''; S.authName=''; restartWizard(); go(''); }
 function restoreAuthSession(){ var p=lsGet('auth_phone'); var n=lsGet('auth_name'); if(p){ S.authPhone=p; S.authName=n||''; } }
+function capturePendingReferral(){
+  try{
+    var params = new URLSearchParams(window.location.search);
+    var ref = (params.get('ref')||'').trim().toUpperCase();
+    if (ref) lsSet('pending_ref', ref);
+  }catch(e){}
+}
 
 // ============================================================
 // ورود کاربر
@@ -531,11 +538,11 @@ async function submitAuth(){
   if(!IRAN_MOBILE_RE.test(phone)){ S.authError='شماره موبایل معتبر نیست.'; render(); return; }
   S.authLoading = true; S.authError=''; render();
   try{
-    var res = await Api.register(name, phone);
+    var res = await Api.register(name, phone, lsGet('pending_ref')||'');
     apiStatus = 'online';
     var key = phone.replace(/^0/,'');
-    S.authPhone = key; S.authName = name; S.remaining = res.remaining;
-    lsSet('auth_phone', key); lsSet('auth_name', name);
+    S.authPhone = key; S.authName = name; S.remaining = res.remaining; S.myRefCode = res.refCode || '';
+    lsSet('auth_phone', key); lsSet('auth_name', name); lsDel('pending_ref');
     S.authLoading = false;
     go('');
   }catch(e){
@@ -575,14 +582,22 @@ function buildLayeha(){
 }
 
 function isLicenseVerified(){ return !!lsGet('license_ok'); }
-function hasQuotaOrLicense(){ return (S.remaining===null || S.remaining>0) || isLicenseVerified(); }
+// آیا کد فعال‌شدهٔ فعلی، دسترسی به این خدمت مشخص را هم پوشش می‌دهد؟
+// کدهای قدیمی‌تر که بدون scope ذخیره شده‌اند (قبل از این قابلیت)، مثل قبل دسترسی کامل دارند.
+function hasScopeAccess(key){
+  if (!isLicenseVerified()) return false;
+  var scope = lsGet('license_scope');
+  if (!scope || !scope.length) return true;
+  return scope.indexOf('all')!==-1 || scope.indexOf(key)!==-1;
+}
+function hasQuotaOrLicense(){ return (S.remaining===null || S.remaining>0) || hasScopeAccess('wizard'); }
 
 async function startWizard(type){
   // همیشه اجازهٔ شروع و مشاهدهٔ تکالیف داده می‌شود؛ سهمیهٔ رایگان فقط تعیین می‌کند که آیا
   // ادامهٔ مسیر (جرایم و بخشودگی) در همین اجرا بدون لایسنس هم آزاد است یا خیر.
   var hadQuotaBeforeThisRun = hasQuotaOrLicense();
-  S.wiz.fullAccessGranted = isLicenseVerified() || hadQuotaBeforeThisRun;
-  if (!isLicenseVerified() && hadQuotaBeforeThisRun) {
+  S.wiz.fullAccessGranted = hasScopeAccess('wizard') || hadQuotaBeforeThisRun;
+  if (!hasScopeAccess('wizard') && hadQuotaBeforeThisRun) {
     try { var r = await Api.usage(S.authPhone); S.remaining = r.remaining; apiStatus='online'; }
     catch(e){ apiStatus='offline'; }
   }
@@ -604,7 +619,7 @@ function handleAnswer(optId){
 }
 
 function goStep(step){
-  if (step==='penalties' && !S.wiz.fullAccessGranted && !isLicenseVerified()) { go('wizard/license'); return; }
+  if (step==='penalties' && !S.wiz.fullAccessGranted && !hasScopeAccess('wizard')) { go('wizard/license'); return; }
   go('wizard/'+step);
 }
 function togglePenalty(id, checked){ S.wiz.selected[id]=Object.assign({}, S.wiz.selected[id]||{}, {checked:checked}); render(); }
@@ -666,18 +681,18 @@ async function submitQuotaLicense(){
   var el=document.getElementById('quotaLicenseInput'); var code=el?el.value.trim():'';
   S.wiz.licenseChecking=true; render();
   try{
-    var r = await Api.verifyLicense(code); apiStatus='online';
-    if (r.valid) { lsSet('license_ok', code); S.wiz.licenseError=''; S.wiz.licenseChecking=false; go(''); }
-    else { S.wiz.licenseError='کد نامعتبر است.'; S.wiz.licenseChecking=false; render(); }
+    var r = await Api.verifyLicense(code, S.authPhone); apiStatus='online';
+    if (r.valid) { lsSet('license_ok', code); lsSet('license_scope', r.scope||['all']); S.wiz.licenseError=''; S.wiz.licenseChecking=false; go(''); }
+    else { S.wiz.licenseError = r.reason==='used_by_other' ? 'این کد قبلاً توسط شمارهٔ دیگری فعال شده و قابل استفادهٔ مجدد نیست.' : 'کد نامعتبر است.'; S.wiz.licenseChecking=false; render(); }
   }catch(e){ apiStatus='offline'; S.wiz.licenseChecking=false; S.wiz.licenseError='خطا در برقراری ارتباط با سرور.'; render(); }
 }
 async function submitLicense(){
   var el=document.getElementById('licenseInputEl'); var code=el?el.value.trim():'';
   S.wiz.licenseChecking=true; render();
   try{
-    var r = await Api.verifyLicense(code); apiStatus='online';
-    if (r.valid) { lsSet('license_ok', code); S.wiz.licenseError=''; S.wiz.licenseChecking=false; go('wizard/penalties'); }
-    else { S.wiz.licenseError='کد نامعتبر است.'; S.wiz.licenseChecking=false; render(); }
+    var r = await Api.verifyLicense(code, S.authPhone); apiStatus='online';
+    if (r.valid) { lsSet('license_ok', code); lsSet('license_scope', r.scope||['all']); S.wiz.licenseError=''; S.wiz.licenseChecking=false; go('wizard/penalties'); }
+    else { S.wiz.licenseError = r.reason==='used_by_other' ? 'این کد قبلاً توسط شمارهٔ دیگری فعال شده و قابل استفادهٔ مجدد نیست.' : 'کد نامعتبر است.'; S.wiz.licenseChecking=false; render(); }
   }catch(e){ apiStatus='offline'; S.wiz.licenseChecking=false; S.wiz.licenseError='خطا در برقراری ارتباط با سرور.'; render(); }
 }
 
@@ -723,7 +738,31 @@ function renderStepIntro(){
     '<div class="grid2">' +
       '<button class="choice-card" onclick="startWizard(\'حقیقی\')">'+ic('users',26,'#B8862E')+'<div class="title">شخص حقیقی</div><div class="desc">صاحبان مشاغل، فریلنسرها</div></button>' +
       '<button class="choice-card" onclick="startWizard(\'حقوقی\')">'+ic('shield',26,'#B8862E')+'<div class="title">شخص حقوقی</div><div class="desc">شرکت‌ها و مؤسسات</div></button>' +
-    '</div></div>';
+    '</div></div>' + renderReferralCard();
+}
+
+// کارت دعوت از دوستان — فقط برای کاربران واردشده نمایش داده می‌شود
+function renderReferralCard(){
+  if (!S.authPhone) return '';
+  if (!S.myRefCode && !S.myRefCodeLoading) { loadMyRefCode(); }
+  if (!S.myRefCode) return '';
+  return '<div class="offer-card" style="border-inline-start-color:var(--green);">' +
+    '<div class="offer-icon">'+ic('users',18,'var(--green)')+'</div>' +
+    '<div class="offer-body"><div class="offer-title">دوستان‌تان را دعوت کنید</div>' +
+    '<div class="offer-sub">با هر ثبت‌نام از طریق لینک شما، هر دو یک استعلام رایگان اضافه می‌گیرید. کد شما: <b>'+esc(S.myRefCode)+'</b></div></div>' +
+    '<button class="btn btn-ghost btn-sm" onclick="copyReferralLink()">'+ic('copy',13)+'<span>'+(S.refCopyMsg||'کپی لینک')+'</span></button>' +
+  '</div>';
+}
+async function loadMyRefCode(){
+  S.myRefCodeLoading = true;
+  try{ var r = await Api.me(S.authPhone); if (r.refCode) S.myRefCode = r.refCode; apiStatus='online'; }catch(e){ apiStatus='offline'; }
+  S.myRefCodeLoading = false; render();
+}
+function copyReferralLink(){
+  var link = window.location.origin + window.location.pathname + '?ref=' + S.myRefCode;
+  function done(){ S.refCopyMsg='کپی شد!'; render(); setTimeout(function(){ S.refCopyMsg=''; render(); }, 1800); }
+  if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(link).then(done).catch(function(){ prompt('لینک دعوت شما:', link); }); }
+  else { prompt('لینک دعوت شما:', link); }
 }
 
 // دکمه/پیام مشترک «تماس برای دریافت کد فعال‌سازی» — هم شمارهٔ مدیر را نشان می‌دهد هم پیام به او ارسال می‌کند
@@ -896,6 +935,7 @@ async function ensureMyDataLoaded(){
     S.wiz.myAuditChecked = r.auditChecked || {};
     S.wiz.myReminders = r.reminders || [];
     S.wiz.myDataLoaded = true;
+    if (r.refCode) S.myRefCode = r.refCode;
     apiStatus='online';
   }catch(e){ apiStatus='offline'; }
 }
@@ -904,16 +944,27 @@ function renderServicesArea(){
   var view = S.wiz.serviceView;
   if (!view) return renderServicesHub();
   if (view==='chat') return renderServiceChat();
-  if (!isLicenseVerified()) {
-    return '<div class="card narrow"><div class="lock-wrap"><div class="lock-badge">'+ic('lock',22,'#E7C878')+'</div><h2>نیاز به فعال‌سازی اشتراک</h2><p>این خدمت پس از فعال‌سازی اشتراک در دسترس است.</p></div>' +
-      renderLicenseHelper('service-'+view) +
-      '<div class="btn-row start"><button class="btn btn-ghost" onclick="go(\'wizard/services\')">'+ic('right',15)+'<span>بازگشت به خدمات</span></button></div></div>';
+  if (!hasScopeAccess(view)) {
+    return '<div class="card narrow">'+renderActivationBody({
+      icon:'lock', title:'نیاز به فعال‌سازی این خدمت',
+      desc:'برای استفاده از این خدمت، کد فعال‌سازی مخصوص آن را وارد کنید.',
+      inputId:'serviceLicenseInput', submitFn:'submitServiceLicense', context:'service-'+view
+    }) + '<div class="btn-row start"><button class="btn btn-ghost" onclick="go(\'wizard/services\')">'+ic('right',15)+'<span>بازگشت به خدمات</span></button></div></div>';
   }
   if (view==='upload') return renderServiceUpload();
   if (view==='case') return renderServiceCase();
   if (view==='reminder') return renderServiceReminder();
   if (view==='audit') return renderServiceAudit();
   return renderServicesHub();
+}
+async function submitServiceLicense(){
+  var el=document.getElementById('serviceLicenseInput'); var code=el?el.value.trim():'';
+  S.wiz.licenseChecking=true; render();
+  try{
+    var r = await Api.verifyLicense(code, S.authPhone); apiStatus='online';
+    if (r.valid) { lsSet('license_ok', code); lsSet('license_scope', r.scope||['all']); S.wiz.licenseError=''; S.wiz.licenseChecking=false; render(); }
+    else { S.wiz.licenseError = r.reason==='used_by_other' ? 'این کد قبلاً توسط شمارهٔ دیگری فعال شده و قابل استفادهٔ مجدد نیست.' : 'کد نامعتبر است.'; S.wiz.licenseChecking=false; render(); }
+  }catch(e){ apiStatus='offline'; S.wiz.licenseChecking=false; S.wiz.licenseError='خطا در برقراری ارتباط با سرور.'; render(); }
 }
 
 function renderServicesHub(){
@@ -926,7 +977,7 @@ function renderServicesHub(){
   ];
   var html = cards.map(function(c){
     var plan = servicePlan(c.key);
-    var badge = c.freeNote ? '<span class="badge badge-green">'+toFa((CATALOG.meta&&CATALOG.meta.chatFreeLimit)||2)+' سؤال رایگان</span>' : (isLicenseVerified() ? servicePriceBadge(plan) : '<span class="badge badge-ink">'+ic('lock',11)+' نیاز به فعال‌سازی</span>');
+    var badge = c.freeNote ? '<span class="badge badge-green">'+toFa((CATALOG.meta&&CATALOG.meta.chatFreeLimit)||2)+' سؤال رایگان</span>' : (hasScopeAccess(c.key) ? servicePriceBadge(plan) : '<span class="badge badge-ink">'+ic('lock',11)+' نیاز به فعال‌سازی</span>');
     return '<button class="choice-card" style="text-align:right;" onclick="go(\'wizard/services/'+c.key+'\')">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;">'+ic(c.icon,24,'#B8862E')+badge+'</div>' +
       '<div class="title" style="margin-top:8px;">'+esc(c.title)+'</div><div class="desc">'+esc(c.desc)+'</div></button>';
@@ -970,7 +1021,7 @@ function renderServiceChat(){
       }).join('')+'</div>';
     }
   }
-  var remainNote = (S.wiz.kbRemaining!=null && !isLicenseVerified()) ? '<div class="small-muted" style="margin-top:10px;">'+toFa(S.wiz.kbRemaining)+' سؤال رایگان دیگر باقی مانده.</div>' : '';
+  var remainNote = (S.wiz.kbRemaining!=null && !hasScopeAccess('chat')) ? '<div class="small-muted" style="margin-top:10px;">'+toFa(S.wiz.kbRemaining)+' سؤال رایگان دیگر باقی مانده.</div>' : '';
   return '<div class="card">'+renderServiceHeader('چت با منابع تخصصی', 'chat') +
     '<div class="alert-box info" style="margin-bottom:14px;">'+ic('info',14)+'<span>این بخش فقط در منابعی که کارشناسان ما تهیه کرده‌اند پاسخ می‌جوید و چیزی از خودش نمی‌سازد؛ اگر پاسخ در منابع نباشد، همین را به شما می‌گوید.</span></div>' +
     '<div class="search-wrap" style="margin-bottom:14px;"><span class="search-icon">'+ic('search',15)+'</span><input type="text" value="'+esc(S.wiz.kbQuery)+'" oninput="S.wiz.kbQuery=this.value" onkeydown="if(event.key===\'Enter\')doKbSearch();" placeholder="مثلاً: گروه‌بندی مودیان" /></div>' +
@@ -981,7 +1032,7 @@ async function doKbSearch(){
   if (!S.wiz.kbQuery || !S.wiz.kbQuery.trim()) return;
   S.wiz.kbSearching = true; S.wiz.kbAnswer=null; render();
   try{
-    var r = await Api.kbAnswer(S.wiz.kbQuery, S.authPhone, isLicenseVerified());
+    var r = await Api.kbAnswer(S.wiz.kbQuery, S.authPhone, hasScopeAccess('chat'));
     apiStatus='online';
     if (r.requireLicense) { S.wiz.kbRequireLicense = true; }
     else { S.wiz.kbAnswer = r; S.wiz.kbRemaining = r.remaining; }
@@ -992,9 +1043,9 @@ async function submitChatLicense(){
   var el=document.getElementById('chatLicenseInput'); var code=el?el.value.trim():'';
   S.wiz.licenseChecking = true; render();
   try{
-    var r = await Api.verifyLicense(code); apiStatus='online';
-    if (r.valid) { lsSet('license_ok', code); S.wiz.licenseError=''; S.wiz.kbRequireLicense=false; S.wiz.licenseChecking=false; render(); }
-    else { S.wiz.licenseError='کد نامعتبر است.'; S.wiz.licenseChecking=false; render(); }
+    var r = await Api.verifyLicense(code, S.authPhone); apiStatus='online';
+    if (r.valid) { lsSet('license_ok', code); lsSet('license_scope', r.scope||['all']); S.wiz.licenseError=''; S.wiz.kbRequireLicense=false; S.wiz.licenseChecking=false; render(); }
+    else { S.wiz.licenseError = r.reason==='used_by_other' ? 'این کد قبلاً توسط شمارهٔ دیگری فعال شده و قابل استفادهٔ مجدد نیست.' : 'کد نامعتبر است.'; S.wiz.licenseChecking=false; render(); }
   }catch(e){ apiStatus='offline'; S.wiz.licenseChecking=false; S.wiz.licenseError='خطا در برقراری ارتباط با سرور.'; render(); }
 }
 
@@ -1693,6 +1744,18 @@ function exportLeadsCSV(){
 // ============================================================
 // لایسنس‌ها
 // ============================================================
+var SCOPE_OPTIONS = [
+  {key:'wizard', label:'محاسبهٔ جرایم و لایحه'},
+  {key:'chat', label:'چت با منابع'},
+  {key:'upload', label:'مشاورهٔ بررسی مدارک'},
+  {key:'case', label:'وضعیت پرونده'},
+  {key:'reminder', label:'یادآور مواعد'},
+  {key:'audit', label:'چک‌لیست حسابرسی'}
+];
+function scopeLabel(scope){
+  if (!scope || !scope.length || scope.indexOf('all')!==-1) return 'دسترسی کامل';
+  return scope.map(function(k){ var f=SCOPE_OPTIONS.find(function(s){return s.key===k;}); return f?f.label:k; }).join('، ');
+}
 function renderLicensesAdmin(){
   var d=S.adminData;
   var now=Date.now();
@@ -1700,19 +1763,25 @@ function renderLicensesAdmin(){
     var expired=l.expiresAt && new Date(l.expiresAt).getTime()<now;
     var statusBadge=expired?'<span class="badge badge-red">منقضی</span>':'<span class="badge badge-green">فعال</span>';
     var durLabel=(LICENSE_DURATIONS.find(function(dd){return dd.months===l.durationMonths;})||{}).label||(toFa(l.durationMonths||0)+' ماهه');
-    var sub=(l.note?esc(l.note)+' — ':'')+durLabel+' — ثبت: '+new Date(l.createdAt).toLocaleDateString('fa-IR')+(l.expiresAt?(' — انقضا: '+new Date(l.expiresAt).toLocaleDateString('fa-IR')):'')+' '+statusBadge;
+    var boundLabel = l.boundPhone ? (' — فعال‌شده توسط '+esc(l.boundPhone)) : ' — هنوز فعال نشده';
+    var sub=(l.note?esc(l.note)+' — ':'')+durLabel+' — '+scopeLabel(l.scope)+boundLabel+' — ثبت: '+new Date(l.createdAt).toLocaleDateString('fa-IR')+(l.expiresAt?(' — انقضا: '+new Date(l.expiresAt).toLocaleDateString('fa-IR')):'')+' '+statusBadge;
     return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(l.code)+'</div><div class="row-sub">'+sub+'</div></div>' +
-      '<div class="row-actions"><button class="icon-btn danger" onclick="deleteLicense(\''+l.code+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
+      '<div class="row-actions">'+(l.boundPhone?'<button class="icon-btn" title="آزادسازی برای استفادهٔ دوباره" onclick="unbindLicense(\''+l.code+'\')">'+ic('logout',14)+'</button>':'')+'<button class="icon-btn danger" onclick="deleteLicense(\''+l.code+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
   }).join('');
-  var logsRows=d.licenseLogs.slice().reverse().slice(0,25).map(function(l){ return '<div class="small-muted" style="padding:4px 0;border-bottom:1px solid var(--line);">کد <b>'+esc(l.code)+'</b> — '+new Date(l.at).toLocaleString('fa-IR')+'</div>'; }).join('');
+  var logsRows=d.licenseLogs.slice().reverse().slice(0,25).map(function(l){ return '<div class="small-muted" style="padding:4px 0;border-bottom:1px solid var(--line);">کد <b>'+esc(l.code)+'</b>'+(l.phone?(' — '+esc(l.phone)):'')+' — '+new Date(l.at).toLocaleString('fa-IR')+'</div>'; }).join('');
   var durationRadios=LICENSE_DURATIONS.map(function(dd){ return '<label class="radio-row"><input type="radio" name="licDuration" '+(S.newLicenseDuration===dd.months?'checked':'')+' onchange="setNewLicenseDuration('+dd.months+')" /><span>'+dd.label+'</span></label>'; }).join('');
-  return '<div class="card"><div class="section-title tight"><h2>🔑 کدهای فعال‌سازی</h2></div><p class="muted" style="margin:8px 0 16px;">ساخت کدهای ۳، ۶ و ۱۲ ماهه</p>' +
+  var scopeChecks = SCOPE_OPTIONS.map(function(s){
+    return '<label class="checkbox-row"><input type="checkbox" '+((S.newLicenseScope||[]).indexOf(s.key)!==-1?'checked':'')+' onchange="toggleNewLicenseScope(\''+s.key+'\', this.checked)" /><span>'+s.label+'</span></label>';
+  }).join('');
+  return '<div class="card"><div class="section-title tight"><h2>🔑 کدهای فعال‌سازی</h2></div><p class="muted" style="margin:8px 0 16px;">ساخت کدهای ۳، ۶ و ۱۲ ماهه — هر کد فقط برای اولین شماره‌ای که آن را فعال کند کار می‌کند.</p>' +
     '<div class="block" style="margin-bottom:18px;"><label class="checkbox-row"><input type="checkbox" '+(d.meta.defaultLicenseEnabled!==false?'checked':'')+' onchange="toggleDefaultLicense(this.checked)" /><span style="font-weight:700;">فعال‌سازی پیش‌فرض</span></label>' +
     '<div class="grid2" style="margin-top:10px;"><label class="field"><span class="field-label">کد پیش‌فرض</span><input type="text" id="defaultLicenseCodeInput" value="'+esc(d.meta.defaultLicenseCode||'123')+'" /></label><div style="align-self:end;"><button class="btn btn-ghost" onclick="saveDefaultLicenseCode()">ذخیره</button></div></div></div>' +
     '<div class="form-box"><div class="grid3"><label class="field"><span class="field-label">کد</span><input type="text" id="newLicenseCodeInput" placeholder="A1B2C3" /></label>' +
     '<label class="field"><span class="field-label">یادداشت</span><input type="text" id="newLicenseNoteInput" placeholder="نام مشتری" /></label>' +
     '<div style="align-self:end;display:flex;gap:8px;"><button class="btn btn-ghost" onclick="fillGeneratedLicenseCode()">تولید</button><button class="btn btn-primary" onclick="addLicense()">افزودن</button></div></div>' +
-    '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:6px;">'+durationRadios+'</div></div>' +
+    '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:6px;">'+durationRadios+'</div>' +
+    '<div style="margin-top:10px;"><label class="checkbox-row"><input type="checkbox" '+(S.newLicenseScopeLimited?'checked':'')+' onchange="toggleScopeLimited(this.checked)" /><span class="small-muted">محدود به خدمات خاص (پیش‌فرض: دسترسی کامل به همه چیز)</span></label>' +
+    (S.newLicenseScopeLimited?'<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;">'+scopeChecks+'</div>':'') + '</div></div>' +
     '<div class="stack" style="margin-bottom:18px;">'+(licenseRows||'<p class="muted">کدی ثبت نشده است.</p>')+'</div>' +
     '<div class="section-title-row"><div style="font-weight:800;">گزارش استفاده</div><button class="btn btn-ghost btn-sm" onclick="clearLicenseLogs()">پاک</button></div>' +
     '<div class="block">'+(logsRows||'<span class="small-muted">موردی ثبت نشده است.</span>')+'</div></div>';
@@ -1720,13 +1789,28 @@ function renderLicensesAdmin(){
 function genLicenseCode(){ var chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; var s=''; for(var i=0;i<6;i++) s+=chars[Math.floor(Math.random()*chars.length)]; return s; }
 function fillGeneratedLicenseCode(){ var el=document.getElementById('newLicenseCodeInput'); if(el) el.value=genLicenseCode(); }
 function setNewLicenseDuration(m){ S.newLicenseDuration=Number(m); render(); }
+function toggleScopeLimited(checked){ S.newLicenseScopeLimited=checked; if(!checked) S.newLicenseScope=[]; render(); }
+function toggleNewLicenseScope(key, checked){
+  S.newLicenseScope = S.newLicenseScope||[];
+  if(checked){ if(S.newLicenseScope.indexOf(key)===-1) S.newLicenseScope.push(key); }
+  else { S.newLicenseScope = S.newLicenseScope.filter(function(k){return k!==key;}); }
+  render();
+}
 async function addLicense(){
   var codeEl=document.getElementById('newLicenseCodeInput'), noteEl=document.getElementById('newLicenseNoteInput');
   var code=codeEl?codeEl.value.trim():'', note=noteEl?noteEl.value.trim():''; var months=S.newLicenseDuration||3;
   if(!code){ alert('کد را وارد کنید.'); return; }
   if(S.adminData.licenses.some(function(l){return l.code===code;})){ alert('کد تکراری است.'); return; }
   var createdAt=new Date().toISOString();
-  S.adminData.licenses.push({code:code, note:note, durationMonths:months, createdAt:createdAt, expiresAt:addMonthsIso(createdAt, months)});
+  var scope = (S.newLicenseScopeLimited && S.newLicenseScope && S.newLicenseScope.length) ? S.newLicenseScope.slice() : ['all'];
+  S.adminData.licenses.push({code:code, note:note, durationMonths:months, createdAt:createdAt, expiresAt:addMonthsIso(createdAt, months), scope:scope, boundPhone:null});
+  S.newLicenseScopeLimited=false; S.newLicenseScope=[];
+  await persistAndRender();
+}
+async function unbindLicense(code){
+  if(!confirm('این کد آزاد شود تا دوباره (برای شمارهٔ دیگری) قابل فعال‌سازی باشد؟')) return;
+  var lic = S.adminData.licenses.find(function(l){return l.code===code;});
+  if (lic) { lic.boundPhone = null; lic.boundAt = null; }
   await persistAndRender();
 }
 async function deleteLicense(code){ if(!confirm('حذف شود؟')) return; S.adminData.licenses = S.adminData.licenses.filter(function(l){return l.code!==code;}); await persistAndRender(); }
@@ -1932,6 +2016,7 @@ function renderMultiCheck(allItems, selectedIds, field){
 // ============================================================
 async function boot(){
   onRoute();
+  capturePendingReferral();
   restoreAuthSession();
   initPwaInstall();
   registerServiceWorker();
