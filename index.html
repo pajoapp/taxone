@@ -1,2045 +1,458 @@
-<!doctype html>
-<html lang="fa" dir="rtl">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://lively-pine-52b4.msalimabadifarahani.workers.dev; base-uri 'self'; form-action 'self'; frame-ancestors 'none';" />
-<title>مالیار | دستیار هوشمند تکالیف، مواعد و جرایم مالیاتی</title>
-<meta name="description" content="مالیار، دستیار آنلاین قابل‌اعتماد شما برای مالیات: با پاسخ به چند سوال ساده، تکالیف قانونی، مواعد، جرایم و بخشودگی‌های مالیاتی مخصوص خودتان را همراه با مواد قانونی ببینید." />
-<meta name="keywords" content="مالیار, تکالیف مالیاتی, جرایم مالیاتی, بخشودگی مالیاتی, اظهارنامه مالیاتی, سامانه مودیان, مشاور مالیاتی, قانون مالیات های مستقیم" />
-<meta name="robots" content="index, follow" />
-<meta name="author" content="مالیار" />
-<link rel="canonical" href="https://REPLACE-WITH-YOUR-DOMAIN/" id="canonicalLink" />
-<link rel="manifest" href="manifest.json" />
-<link rel="icon" href="icon-192.png" />
-<link rel="apple-touch-icon" href="icon-192.png" />
-<meta name="theme-color" content="#1B2A45" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="مالیار" />
+// بک‌تست به‌روزشده — منطبق با الگوریتم فعلی زندهٔ سیگنال‌بان (شامل تاییدیهٔ هفتگی)
+// هم برای کریپتو (Bybit) هم فارکس (Twelve Data — نیاز به کلید رایگان).
+// اجرا: node backtest.js   (یا از طریق GitHub Actions، بدون نصب چیزی)
 
-<!-- Open Graph / شبکه‌های اجتماعی -->
-<meta property="og:type" content="website" />
-<meta property="og:locale" content="fa_IR" />
-<meta property="og:title" content="مالیار | دستیار هوشمند تکالیف و جرایم مالیاتی" />
-<meta property="og:description" content="تکالیف، مواعد، جرایم و بخشودگی‌های مالیاتی خودتان را با مواد قانونی ببینید و راهنمایی بگیرید." />
-<meta property="og:url" content="https://REPLACE-WITH-YOUR-DOMAIN/" id="ogUrlTag" />
-<meta property="og:site_name" content="مالیار" />
-<meta name="twitter:card" content="summary" />
-<meta name="twitter:title" content="مالیار | دستیار هوشمند تکالیف و جرایم مالیاتی" />
-<meta name="twitter:description" content="تکالیف، مواعد، جرایم و بخشودگی‌های مالیاتی خودتان را با مواد قانونی ببینید." />
+const HOLD_DAYS = 10;
+const TWELVE_DATA_KEY = process.env.TWELVE_DATA_API_KEY || '';
 
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+const CRYPTO_UNIVERSE = [
+  'BTC','ETH','BNB','SOL','XRP','ADA','DOGE','TRX','AVAX','DOT',
+  'LINK','MATIC','LTC','BCH','ATOM','UNI','ETC','XLM','NEAR','APT',
+];
+// MATIC در سپتامبر ۲۰۲۴ به POL ری‌برند شد؛ Twelve Data دیگه نماد MATIC/USD رو
+// نداره (خطای 404). برای گرفتن داده از نماد جدید استفاده می‌کنیم ولی برای
+// نمایش/گزارش همون نام آشنای MATIC رو نگه می‌داریم.
+const TWELVE_DATA_SYMBOL_OVERRIDES = { MATIC: 'POL' };
+// XAG/USD (نقره) حذف شد: توی پلن رایگان Twelve Data در دسترس نیست (نیاز به پلن Grow/Venture داره)
+const FOREX_UNIVERSE = ['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','USD/CAD','NZD/USD','XAU/USD'];
 
-<script type="application/ld+json" id="ldJsonOrg">
-{
-  "@context": "https://schema.org",
-  "@type": "ProfessionalService",
-  "name": "مالیار",
-  "description": "خدمات مشاورهٔ تکالیف، جرایم و بخشودگی‌های مالیاتی",
-  "areaServed": "IR",
-  "priceRange": "رایگان تا ۱,۰۰۰,۰۰۰ تومان"
+// ---------- indicators (همون منطق دقیق زندهٔ اپ) ----------
+function ema(values, period) {
+  if (!values.length) return [];
+  const k = 2 / (period + 1);
+  const out = [values[0]];
+  for (let i = 1; i < values.length; i++) out.push(values[i] * k + out[i - 1] * (1 - k));
+  return out;
 }
-</script>
-<style>
-:root{
-  --ink:#1B2A45; --ink-soft:#4A5876; --paper:#F7F4EC; --paper-alt:#EFE9D8;
-  --card:#FFFFFF; --gold:#B8862E; --gold-light:#E7C878; --red:#A23B3B;
-  --red-soft:#F3E2E0; --green:#3F7A5D; --green-soft:#E1EDE5; --line:#DCD4BC;
-}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Vazirmatn',Tahoma,Arial,sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;line-height:1.6;}
-a{color:inherit;}button{font-family:inherit;cursor:pointer;}
-.container{max-width:960px;margin:0 auto;padding:0 16px;}
-.site-header{border-bottom:1px solid var(--line);padding:18px 0;}
-.site-header .inner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-.brand{display:flex;align-items:center;gap:12px;min-width:0;}
-.brand-badge{width:44px;height:44px;border-radius:12px;background:var(--ink);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.brand-name{font-weight:800;font-size:16px;color:var(--ink);}
-.brand-tagline{font-size:12px;color:var(--ink-soft);}
-.header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-.btn{display:inline-flex;align-items:center;gap:6px;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:700;border:none;cursor:pointer;transition:transform .1s;}
-.btn:active{transform:scale(.96);}
-.btn:disabled{opacity:.5;cursor:not-allowed;}
-.btn-primary{background:var(--ink);color:#fff;}
-.btn-gold{background:var(--gold);color:#fff;}
-.btn-services{background:linear-gradient(90deg,#0F6E5C,#14907A);color:#fff;box-shadow:0 2px 10px rgba(15,110,92,.35);border:1px solid #0c5747;}
-.btn-services:hover{filter:brightness(1.08);}
-.btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line);}
-.btn-sm{padding:7px 10px;font-size:12px;border-radius:8px;}
-.btn-row{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;}
-.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 1px 2px rgba(27,42,69,.05);margin-bottom:16px;}
-.card.narrow{max-width:440px;margin:24px auto;}
-.grid2{display:grid;grid-template-columns:1fr;gap:14px;}
-@media(min-width:680px){.grid2{grid-template-columns:1fr 1fr;}}
-.grid3{display:grid;grid-template-columns:1fr;gap:10px;}
-@media(min-width:680px){.grid3{grid-template-columns:repeat(3,1fr);}}
-.grid4{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
-@media(min-width:680px){.grid4{grid-template-columns:repeat(4,1fr);}}
-.field{display:block;margin-bottom:14px;}
-.field-label{display:block;font-size:13.5px;font-weight:700;margin-bottom:6px;color:var(--ink);}
-.field-error{display:block;font-size:11.5px;margin-top:5px;color:var(--red);}
-input[type=text],input[type=password],input[type=number],input[type=tel],select,textarea{
-  border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;
-  padding:10px 12px;font-size:14px;font-family:inherit;width:100%;outline:none;
-}
-input:focus,select:focus,textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(184,134,46,.15);}
-.muted{color:var(--ink-soft);font-size:13.5px;}
-.small-muted{color:var(--ink-soft);font-size:12px;}
-.section-title{display:flex;align-items:center;gap:8px;margin:0 0 18px;}
-.section-title h2,.section-title h1{font-size:19px;font-weight:800;margin:0;color:var(--ink);}
-.section-title.tight{margin:0;}
-.section-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
-.section-eyebrow{font-size:11.5px;font-weight:800;color:var(--gold);letter-spacing:.02em;margin-bottom:4px;}
-.lock-wrap{display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:18px;}
-.lock-badge{width:52px;height:52px;border-radius:14px;background:var(--ink);display:flex;align-items:center;justify-content:center;margin-bottom:10px;}
-.lock-wrap h2{margin:0;font-size:17px;font-weight:800;}
-.alert-box{font-size:12px;border-radius:12px;padding:10px 12px;margin-top:10px;}
-.alert-box.error{background:var(--red-soft);color:var(--red);}
-.alert-box.info{background:var(--red-soft);color:var(--red);display:flex;gap:6px;align-items:flex-start;}
-.alert-box.ok{background:var(--green-soft);color:var(--green);display:flex;gap:6px;align-items:flex-start;}
-.sync-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;}
-.sync-pill.online{background:var(--green-soft);color:var(--green);}
-.sync-pill.offline{background:var(--red-soft);color:var(--red);}
-.sync-pill.connecting{background:var(--paper-alt);color:var(--ink-soft);}
-.admin-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;}
-.admin-tab{display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:999px;font-size:12px;font-weight:800;background:var(--paper-alt);color:var(--ink-soft);border:none;cursor:pointer;}
-.admin-tab.active{background:var(--ink);color:#fff;}
-.admin-row{border-radius:14px;padding:14px;background:var(--paper-alt);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
-.admin-row .row-main{min-width:0;flex:1;}
-.admin-row .row-title{font-weight:800;font-size:13.5px;color:var(--ink);}
-.admin-row .row-sub{font-size:12px;margin-top:4px;line-height:1.8;color:var(--ink-soft);}
-.admin-row .row-actions{display:flex;gap:6px;flex-shrink:0;}
-.stat-box{border-radius:14px;padding:14px;background:var(--paper-alt);text-align:center;}
-.stat-value{font-size:22px;font-weight:800;margin-top:8px;color:var(--ink);}
-.stat-label{font-size:12px;margin-top:4px;color:var(--ink-soft);}
-.icon-btn{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;}
-.icon-btn.danger{background:var(--red-soft);border:none;}
-.loading-wrap{min-height:60vh;display:flex;align-items:center;justify-content:center;}
-svg.ic{flex-shrink:0;}
-.option-btn{display:block;width:100%;text-align:right;border-radius:12px;padding:12px 14px;border:1px solid var(--line);background:var(--paper-alt);color:var(--ink);font-weight:700;font-size:13.5px;margin-bottom:9px;cursor:pointer;}
-.block{border-radius:14px;padding:14px;background:var(--paper-alt);}
-.block + .block{margin-top:10px;}
-.stack{display:flex;flex-direction:column;gap:10px;}
-.progress-tabs{display:flex;gap:6px;margin-bottom:22px;overflow-x:auto;padding-bottom:4px;}
-.progress-tab{flex-shrink:0;display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:999px;font-size:11.5px;font-weight:800;background:var(--paper-alt);color:var(--ink-soft);white-space:nowrap;}
-.progress-tab.active{background:var(--ink);color:#fff;}
-.progress-tab.done{background:var(--green-soft);color:var(--green);}
-.checkbox-row{display:flex;align-items:center;gap:8px;font-size:13.5px;padding:4px 0;cursor:pointer;user-select:none;}
-.checkbox-row input{width:16px;height:16px;flex-shrink:0;}
-.choice-card{text-align:right;border-radius:16px;padding:18px;border:1px solid var(--line);background:var(--paper-alt);transition:transform .12s;width:100%;cursor:pointer;}
-.choice-card:hover{transform:translateY(-2px);}
-.choice-card .title{font-weight:800;margin-top:8px;color:var(--ink);}
-.choice-card .desc{font-size:12px;margin-top:4px;color:var(--ink-soft);}
-.summary-box{border-radius:14px;padding:14px;margin-top:8px;background:var(--ink);color:#fff;}
-.summary-row{display:flex;justify-content:space-between;font-size:13.5px;}
-.summary-row + .summary-row{margin-top:4px;}
-.lead-plan{text-align:right;border-radius:12px;padding:14px;border:1px solid var(--line);background:var(--card);width:100%;cursor:pointer;}
-.lead-plan.selected{border-color:var(--gold);background:var(--paper-alt);}
-.lead-plan .p-title{font-weight:800;font-size:13.5px;color:var(--ink);}
-.lead-plan .p-dur{font-size:12px;margin-top:3px;color:var(--ink-soft);}
-.lead-plan .p-price{font-weight:800;margin-top:8px;}
-.lead-plan .p-desc{font-size:12px;margin-top:5px;line-height:1.7;color:var(--ink-soft);}
-.success-box{border-radius:14px;padding:14px;background:var(--green-soft);color:var(--green);}
-.success-box .title-row{display:flex;align-items:center;gap:8px;font-weight:700;}
-.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap;}
-.badge-gold{background:var(--gold-light);color:#5c4109;}
-.badge-red{background:var(--red-soft);color:var(--red);}
-.badge-green{background:var(--green-soft);color:var(--green);}
-.badge-ink{background:var(--paper-alt);color:var(--ink);}
-
-/* کارت پیشنهاد ویژه — کارتی آرام و حرفه‌ای، فقط در نقطهٔ نتیجه (نه بالای صفحه) */
-.offer-card{
-  display:flex; align-items:center; gap:12px;
-  background:var(--card); border:1px solid var(--line); border-inline-start:3px solid var(--gold);
-  border-radius:14px; margin:18px 0; padding:13px 16px;
-}
-.offer-icon{flex-shrink:0;width:36px;height:36px;border-radius:10px;background:var(--paper-alt);display:flex;align-items:center;justify-content:center;}
-.offer-body{flex:1;min-width:0;}
-.offer-title{font-weight:800;font-size:13px;color:var(--ink);margin-bottom:2px;}
-.offer-sub{font-size:11.5px;color:var(--ink-soft);}
-@media (max-width:420px){ .offer-card{flex-wrap:wrap;} .offer-sub{display:none;} }
-
-.quota-pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--paper-alt);color:var(--ink-soft);margin-bottom:10px;}
-.error-banner{font-size:12px;border-radius:12px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px;background:#3a1414;color:#ffd7d0;margin:0 0 14px;}
-.success-banner{font-size:12px;border-radius:12px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px;background:var(--green-soft);color:var(--green);margin:0 0 14px;}
-.disclaimer{font-size:12px;border-radius:12px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px;background:var(--paper-alt);color:var(--ink-soft);margin:14px 0 4px;}
-.install-banner{background:var(--ink);color:#fff;padding:10px 0;}
-.install-banner-inner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;}
-.install-banner-inner span{flex:1;min-width:180px;}
-.install-banner-close{background:transparent;border:none;color:#fff;opacity:.75;cursor:pointer;flex-shrink:0;padding:4px;}
-.install-banner-close:hover{opacity:1;}
-.form-box{border:1px dashed var(--gold);border-radius:14px;padding:16px;margin-bottom:16px;background:#FFFDF7;}
-.opt-box{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;background:var(--card);}
-.opt-row{display:flex;gap:8px;align-items:center;margin-bottom:6px;}
-.opt-row input{flex:1;}
-.multi-check{display:flex;flex-direction:column;gap:2px;max-height:180px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--card);}
-.tpl-var{background:var(--paper-alt);padding:2px 6px;border-radius:6px;font-size:11px;}
-.tree-flow{font-size:11.5px;color:var(--ink-soft);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin-top:6px;}
-.search-wrap{position:relative;}
-.search-wrap input{padding-right:36px;}
-.search-icon{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--ink-soft);}
-.backup-box{border-radius:14px;padding:14px;background:var(--paper-alt);margin-top:14px;}
-.radio-row{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;}
-</style>
-</head>
-<body>
-<noscript>
-  <div style="padding:24px;text-align:center;font-family:Tahoma,Arial,sans-serif;">
-    این برنامه برای اجرا نیاز به جاوااسکریپت فعال در مرورگر شما دارد. لطفاً جاوااسکریپت را فعال کنید.
-    <br/><strong>مالیار</strong> — تکالیف، مواعد، جرایم و بخشودگی‌های مالیاتی خود را با مواد قانونی مشاهده کنید.
-  </div>
-</noscript>
-<div id="app"><div class="loading-wrap"><div>⏳ در حال بارگذاری...</div></div></div>
-
-<script>
-// ============================================================
-// ⚙️ تنظیمات — آدرس بک‌اند (Cloudflare Worker) را اینجا وارد کنید
-// اگر این آدرس را عوض کردید، همین مقدار را داخل تگ
-// Content-Security-Policy (بخش connect-src) بالای فایل هم به‌روز کنید،
-// وگرنه مرورگر اتصال به سرور را مسدود می‌کند.
-// ============================================================
-const API_BASE = 'https://lively-pine-52b4.msalimabadifarahani.workers.dev';
-
-// ============================================================
-// حالت برنامه (State)
-// ============================================================
-var CATALOG = { meta:{}, questions:[], obligations:[], penalties:[], templates:[], plans:[], servicePlans:[], knowledgeBase:[], auditChecklist:[] };
-var apiStatus = 'connecting'; // connecting | online | offline
-
-// ============================================================
-// نصب برنامه (PWA) — بنر بالای صفحه
-// ============================================================
-var PWA = { deferredEvent:null, showBanner:false, isIOS:false, dismissed:false };
-function isStandaloneMode(){
-  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
-}
-function initPwaInstall(){
-  PWA.isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
-  if (isStandaloneMode() || lsGet('pwa_installed')) return; // از قبل نصب شده
-  if (PWA.isIOS) {
-    PWA.showBanner = true; render();
-    return;
+function rsi(closes, period = 14) {
+  if (closes.length < period + 2) return [];
+  let gains = 0, losses = 0;
+  for (let i = 1; i <= period; i++) { const d = closes[i] - closes[i - 1]; if (d >= 0) gains += d; else losses -= d; }
+  let avgGain = gains / period, avgLoss = losses / period;
+  const out = [];
+  for (let i = period + 1; i < closes.length; i++) {
+    const d = closes[i] - closes[i - 1];
+    const gain = d > 0 ? d : 0, loss = d < 0 ? -d : 0;
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+    const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+    out.push(100 - 100 / (1 + rs));
   }
-  window.addEventListener('beforeinstallprompt', function(e){
-    e.preventDefault();
-    PWA.deferredEvent = e;
-    PWA.showBanner = true;
-    render();
-  });
-  window.addEventListener('appinstalled', function(){
-    PWA.showBanner = false; lsSet('pwa_installed', true); render();
-  });
+  return out;
 }
-async function triggerInstallPrompt(){
-  if (!PWA.deferredEvent) return;
-  PWA.deferredEvent.prompt();
-  try { await PWA.deferredEvent.userChoice; } catch(e){}
-  PWA.deferredEvent = null;
-  PWA.showBanner = false;
-  render();
+function macd(closes) {
+  const e12 = ema(closes, 12), e26 = ema(closes, 26);
+  const line = closes.map((_, i) => e12[i] - e26[i]);
+  const signal = ema(line, 9);
+  const hist = line.map((v, i) => v - signal[i]);
+  return { line, signal, hist };
 }
-function dismissInstallBanner(){ PWA.dismissed = true; render(); }
-function registerServiceWorker(){
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('service-worker.js').catch(function(){ /* اختیاری — شکست آن مشکلی ایجاد نمی‌کند */ });
+function atr(highs, lows, closes, period = 14) {
+  if (closes.length < period + 2) return null;
+  const trs = [];
+  for (let i = 1; i < closes.length; i++) trs.push(Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1])));
+  const window = trs.slice(-Math.max(period * 3, period + 5));
+  const smoothed = ema(window, period);
+  return smoothed.length ? smoothed[smoothed.length - 1] : null;
+}
+function bollinger(closes, period = 20, mult = 2) {
+  if (closes.length < period) return null;
+  const w = closes.slice(-period);
+  const mean = w.reduce((a, b) => a + b, 0) / period;
+  const variance = w.reduce((a, b) => a + (b - mean) ** 2, 0) / period;
+  const sd = Math.sqrt(variance);
+  return { mid: mean, upper: mean + mult * sd, lower: mean - mult * sd };
+}
+function adx(highs, lows, closes, period = 14) {
+  const n = closes.length;
+  if (n < period + 2) return null;
+  const plusDM = [], minusDM = [], tr = [];
+  for (let i = 1; i < n; i++) {
+    const up = highs[i]-highs[i-1], down = lows[i-1]-lows[i];
+    plusDM.push(up > down && up > 0 ? up : 0);
+    minusDM.push(down > up && down > 0 ? down : 0);
+    tr.push(Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1])));
   }
-}
-
-var S = {
-  route:'user',
-  authName:'', authPhone:'', authError:'', remaining:null, authTermsAccepted:false,
-  adminAuthed:false, adminToken:null, adminTab:'dashboard',
-  adminLoginError:'', adminLoading:false,
-  adminData:null, // کل دیتابیس، فقط وقتی ادمین وارد شده لود می‌شود
-  wiz:{
-    step:'intro', personType:null, qId:null, answers:{}, triggered:{}, selected:{},
-    templateId:null, layehaText:'',
-    lead:{name:'', phone:'', note:'', planId:null},
-    leadSent:false, sendStatus:'idle', leadSyncFailed:false,
-    licenseInput:'', licenseError:'', licenseChecking:false,
-    copyMsg:'',
-    fullAccessGranted:false,
-    licenseReqSent:false, licenseReqSending:false,
-    serviceView:null,
-    kbQuery:'', kbResults:null, kbSearching:false, kbAnswer:null, kbRemaining:null, kbRequireLicense:false,
-    myAuditChecked:{}, myReminders:[], myDataLoaded:false,
-    reminderActivating:false, reminderMsg:'',
-    svcForm:{name:'', phone:'', note:'', caseNumber:'', file:null, fileId:null, fileName:'', uploading:false, uploadError:''},
-    svcSendStatus:'idle', svcSelectedPlanId:null
-  },
-  leadsQuery:'', formType:null, formMode:null, formId:null, form:{},
-  settingsSaved:false, newLicenseDuration:3, reseedLoading:false, reseedMsg:'',
-  serviceReqQuery:'', kbExtracting:false, kbExtractError:''
-};
-
-var NS = 'taxapp_v2::';
-function lsGet(k){ try{ var raw=localStorage.getItem(NS+k); return raw===null?null:JSON.parse(raw); }catch(e){return null;} }
-function lsSet(k,v){ try{ localStorage.setItem(NS+k,JSON.stringify(v)); return true; }catch(e){return false;} }
-function lsDel(k){ try{ localStorage.removeItem(NS+k); }catch(e){} }
-
-var LEAD_STATUSES = ["جدید","در حال پیگیری","نهایی‌شده","بی‌پاسخ"];
-var LICENSE_DURATIONS = [{months:3,label:'۳ ماهه'},{months:6,label:'۶ ماهه'},{months:12,label:'۱۲ ماهه'}];
-var IRAN_MOBILE_RE = /^0?9\d{9}$/;
-
-// ============================================================
-// کلاینت API — تمام ارتباط با Cloudflare Worker از همینجا عبور می‌کند
-// ============================================================
-var Api = {
-  async _fetch(path, opts){
-    opts = opts || {};
-    var headers = Object.assign({ 'Content-Type':'application/json' }, opts.headers || {});
-    var res = await fetch(API_BASE + path, {
-      method: opts.method || 'GET',
-      headers: headers,
-      body: opts.body ? JSON.stringify(opts.body) : undefined
-    });
-    var data = null;
-    try { data = await res.json(); } catch(e) { data = null; }
-    if (!res.ok) { var err = new Error((data && data.error) || ('HTTP '+res.status)); err.status = res.status; err.data = data; throw err; }
-    return data;
-  },
-  getData(){ return this._fetch('/api/data'); },
-  register(name, phone, ref){ return this._fetch('/api/register', { method:'POST', body:{name:name, phone:phone, ref:ref||''} }); },
-  usage(phone){ return this._fetch('/api/usage', { method:'POST', body:{phone:phone} }); },
-  verifyLicense(code, phone){ return this._fetch('/api/license/verify', { method:'POST', body:{code:code, phone:phone||''} }); },
-  submitLead(lead){ return this._fetch('/api/leads', { method:'POST', body:lead }); },
-  adminLogin(password){ return this._fetch('/api/admin/login', { method:'POST', body:{password:password} }); },
-  adminGetData(token){ return this._fetch('/api/admin/data', { headers:{ 'Authorization':'Bearer '+token } }); },
-  adminPutData(token, data){ return this._fetch('/api/admin/data', { method:'PUT', headers:{ 'Authorization':'Bearer '+token }, body:data }); },
-  kbSearch(query, phone, licensed){ return this._fetch('/api/kb/search', { method:'POST', body:{query:query, phone:phone, licensed:licensed} }); },
-  kbAnswer(query, phone, licensed){ return this._fetch('/api/kb/answer', { method:'POST', body:{query:query, phone:phone, licensed:licensed} }); },
-  licenseRequest(payload){ return this._fetch('/api/license-request', { method:'POST', body:payload }); },
-  upload(filename, mimeType, dataBase64){ return this._fetch('/api/upload', { method:'POST', body:{filename:filename, mimeType:mimeType, dataBase64:dataBase64} }); },
-  serviceRequest(payload){ return this._fetch('/api/service-request', { method:'POST', body:payload }); },
-  auditToggle(phone, itemId, checked){ return this._fetch('/api/audit/toggle', { method:'POST', body:{phone:phone, itemId:itemId, checked:checked} }); },
-  saveObligations(phone, personType, obligationIds){ return this._fetch('/api/obligations/save', { method:'POST', body:{phone:phone, personType:personType, obligationIds:obligationIds} }); },
-  adminGetFile(token, fileId){ return this._fetch('/api/admin/file?id='+encodeURIComponent(fileId), { headers:{ 'Authorization':'Bearer '+token } }); },
-  adminFetchLink(token, url){ return this._fetch('/api/admin/fetch-link', { method:'POST', headers:{ 'Authorization':'Bearer '+token }, body:{url:url} }); },
-  me(phone){ return this._fetch('/api/me', { method:'POST', body:{phone:phone} }); },
-  adminBackups(token){ return this._fetch('/api/admin/backups', { headers:{ 'Authorization':'Bearer '+token } }); },
-  adminBackupGet(token, key){ return this._fetch('/api/admin/backup?key='+encodeURIComponent(key), { headers:{ 'Authorization':'Bearer '+token } }); },
-  adminRestore(token, key){ return this._fetch('/api/admin/restore', { method:'POST', headers:{ 'Authorization':'Bearer '+token }, body:{key:key} }); }
-};
-
-// ============================================================
-// روتینگ مبتنی بر Hash
-// ============================================================
-function hashParts(){
-  var h = (window.location.hash || '').replace(/^#\/?/, '');
-  return h ? h.split('/').filter(Boolean) : [];
-}
-function go(path){
-  var target = '#/' + path;
-  if (window.location.hash === target) { onRoute(); render(); }
-  else { window.location.hash = target; }
-  window.scrollTo(0,0);
-}
-function onRoute(){
-  var parts = hashParts();
-  if (parts[0] === 'admin') {
-    S.route = 'admin';
-    S.adminTab = parts[1] || S.adminTab || 'dashboard';
-  } else if (parts[0] === 'wizard') {
-    S.route = 'user';
-    S.wiz.step = parts[1] || 'intro';
-    S.wiz.serviceView = (parts[1]==='services') ? (parts[2] || null) : null;
-  } else {
-    S.route = 'user';
-    if (!S.wiz.step) S.wiz.step = 'intro';
+  function wilder(arr, period) {
+    const out = [arr.slice(0, period).reduce((a, b) => a + b, 0)];
+    for (let i = period; i < arr.length; i++) out.push(out[out.length-1] - out[out.length-1]/period + arr[i]);
+    return out;
   }
+  const smTR = wilder(tr, period), smP = wilder(plusDM, period), smM = wilder(minusDM, period);
+  const diPlus = smP.map((v, i) => smTR[i] ? 100*v/smTR[i] : 0);
+  const diMinus = smM.map((v, i) => smTR[i] ? 100*v/smTR[i] : 0);
+  const dx = diPlus.map((v, i) => { const s = v+diMinus[i]; return s ? 100*Math.abs(v-diMinus[i])/s : 0; });
+  if (dx.length < period) return null;
+  let adxVal = dx.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < dx.length; i++) adxVal = (adxVal*(period-1)+dx[i])/period;
+  return { adx: adxVal, diPlus: diPlus[diPlus.length-1], diMinus: diMinus[diMinus.length-1] };
 }
-window.addEventListener('hashchange', function(){ onRoute(); render(); });
-
-// ============================================================
-// توابع کمکی عمومی
-// ============================================================
-function genId(p){ return p+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7); }
-function toman(n){ return (Number(n)||0).toLocaleString('fa-IR') + ' تومان'; }
-function toFa(n){ return Number(n||0).toLocaleString('fa-IR'); }
-function esc(s){ return String(s===null||s===undefined?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-function clone(o){ return JSON.parse(JSON.stringify(o)); }
-function addMonthsIso(d, m){ var dt=new Date(d); dt.setMonth(dt.getMonth()+Number(m||0)); return dt.toISOString(); }
-
-function ic(name, size, color){
-  size=size||16; color=color||'currentColor';
-  var p = {
-    lock:'<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3" fill="none"/>',
-    check:'<path d="M4 12.5l5 5L20 6" fill="none"/>',
-    alert:'<path d="M12 3l10 18H2L12 3z" fill="none"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17.2" r="1"/>',
-    info:'<circle cx="12" cy="12" r="9" fill="none"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="1"/>',
-    settings:'<circle cx="12" cy="12" r="3" fill="none"/><path d="M19 12a7 7 0 0 0-.2-1.6l2-1.6-2-3.4-2.4.7a7 7 0 0 0-2.8-1.6L13 2h-2l-.6 2.5a7 7 0 0 0-2.8 1.6l-2.4-.7-2 3.4 2 1.6a7 7 0 0 0 0 3.2l-2 1.6 2 3.4 2.4-.7a7 7 0 0 0 2.8 1.6L11 22h2l.6-2.5a7 7 0 0 0 2.8-1.6l2.4.7 2-3.4-2-1.6c.13-.5.2-1 .2-1.6z" fill="none"/>',
-    trash:'<path d="M4 7h16" /><path d="M9 7V4h6v3" fill="none"/><path d="M6 7l1 13h10l1-13" fill="none"/>',
-    edit:'<path d="M4 20l1-4 12-12 3 3-12 12-4 1z" fill="none"/>',
-    phone:'<path d="M6 3l3 1 .5 3-2 2c1 2.5 3 4.5 5.5 5.5l2-2 3 .5 1 3c0 1-1 2-2 2C10 18 4 12 3 5c0-1 1-2 2-2z" fill="none"/>',
-    plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
-    left:'<polyline points="15 18 9 12 15 6" fill="none"/>',
-    right:'<polyline points="9 18 15 12 9 6" fill="none"/>',
-    copy:'<rect x="9" y="9" width="11" height="11" rx="2" fill="none"/><path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none"/>',
-    download:'<path d="M12 3v12" /><polyline points="7 11 12 16 17 11" fill="none"/><path d="M5 20h14" />',
-    calendar:'<rect x="3" y="5" width="18" height="16" rx="2" fill="none"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/>',
-    shield:'<path d="M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3z" fill="none"/>',
-    x:'<line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/>',
-    logout:'<path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4" fill="none"/><polyline points="16 17 21 12 16 7" fill="none"/><line x1="21" y1="12" x2="9" y2="12"/>',
-    search:'<circle cx="10.5" cy="10.5" r="6.5" fill="none"/><line x1="20" y1="20" x2="15" y2="15"/>',
-    scale:'<line x1="12" y1="3" x2="12" y2="21"/><path d="M5 7l-3 7a3.5 3.5 0 0 0 7 0L6 7z" fill="none"/><path d="M19 7l-3 7a3.5 3.5 0 0 0 7 0L20 7z" fill="none"/><line x1="5" y1="7" x2="19" y2="7"/><line x1="8" y1="21" x2="16" y2="21"/>',
-    doc:'<path d="M7 3h7l4 4v14H7z" fill="none"/><path d="M14 3v4h4" fill="none"/>',
-    inbox:'<path d="M4 12h4l2 3h4l2-3h4" fill="none"/><path d="M5 5h14l2 7v7H3v-7z" fill="none"/>',
-    users:'<circle cx="9" cy="8" r="3" fill="none"/><path d="M3 20a6 6 0 0 1 12 0" fill="none"/><circle cx="17" cy="9" r="2.5" fill="none"/><path d="M15 13.5c2.8.3 5 2 5 6.5" fill="none"/>',
-    trend:'<polyline points="3 17 9 11 13 15 21 6" fill="none"/><polyline points="15 6 21 6 21 12" fill="none"/>',
-    key:'<circle cx="8" cy="14" r="4" fill="none"/><path d="M11 11l9-9" fill="none"/><path d="M17 5l3 3" fill="none"/><path d="M14 8l2 2" fill="none"/>',
-    whatsapp:'<path d="M4 20l1.3-3.9A8 8 0 1 1 8.4 19L4 20z" fill="none"/><path d="M8.5 8.7c-.2 1 .4 2.2 1.3 3.2s2.1 1.6 3.2 1.3c.4-.1.7-.6.6-1l-.3-.8c-.1-.3-.4-.5-.7-.4l-.9.3c-.5-.3-1-.8-1.3-1.3l.3-.9c.1-.3-.1-.6-.4-.7l-.8-.3c-.4-.1-.9.2-1 .6z" fill="none"/>',
-    book:'<path d="M4 4h7v16H4z" fill="none"/><path d="M20 4h-7v16h7z" fill="none"/>',
-    wifi:'<path d="M2 8.5a16 16 0 0 1 20 0" fill="none"/><path d="M5.5 12a11 11 0 0 1 13 0" fill="none"/><path d="M9 15.5a6 6 0 0 1 6 0" fill="none"/><circle cx="12" cy="19" r="1"/>',
-    refresh:'<polyline points="23 4 23 10 17 10" fill="none"/><polyline points="1 20 1 14 7 14" fill="none"/><path d="M3.5 9a9 9 0 0 1 14.5-4.5L23 10" fill="none"/><path d="M20.5 15a9 9 0 0 1-14.5 4.5L1 14" fill="none"/>',
-    branch:'<circle cx="6" cy="6" r="2.5" fill="none"/><circle cx="6" cy="18" r="2.5" fill="none"/><circle cx="18" cy="12" r="2.5" fill="none"/><path d="M6 8.5v7" fill="none"/><path d="M8.5 6H13a3 3 0 0 1 3 3v0" fill="none"/><path d="M8.5 18H13a3 3 0 0 0 3-3v0" fill="none"/>'
+function pivots(highs, lows, left=2, right=2) {
+  const sh=[], sl=[];
+  for (let i=left;i<highs.length-right;i++){
+    if (highs[i]===Math.max(...highs.slice(i-left,i+right+1))) sh.push([i,highs[i]]);
+    if (lows[i]===Math.min(...lows.slice(i-left,i+right+1))) sl.push([i,lows[i]]);
+  }
+  return { sh, sl };
+}
+function structureBias(highs, lows) {
+  const { sh, sl } = pivots(highs, lows);
+  if (sh.length>=2 && sl.length>=2){
+    const hh=sh[sh.length-1][1]>sh[sh.length-2][1], hl=sl[sl.length-1][1]>sl[sl.length-2][1];
+    const lh=sh[sh.length-1][1]<sh[sh.length-2][1], ll=sl[sl.length-1][1]<sl[sl.length-2][1];
+    if (hh&&hl) return 'bullish';
+    if (lh&&ll) return 'bearish';
+  }
+  return 'neutral';
+}
+function liquiditySweep(highs, lows, closes, lookback=20) {
+  const n=closes.length;
+  if (n<lookback+2) return {bullish:false, bearish:false};
+  const priorLow=Math.min(...lows.slice(n-lookback-1,n-1)), priorHigh=Math.max(...highs.slice(n-lookback-1,n-1));
+  return { bullish: lows[n-1]<priorLow && closes[n-1]>priorLow, bearish: highs[n-1]>priorHigh && closes[n-1]<priorHigh };
+}
+function fairValueGap(highs, lows, closes, searchBack=15) {
+  const n=closes.length;
+  for (let i=n-2;i>=Math.max(1,n-searchBack);i--){
+    const h1=highs[i-1], l1=lows[i-1], h3=highs[i+1], l3=lows[i+1];
+    if (h1===undefined||h3===undefined) continue;
+    if (h1<l3) return {type:'bullish', age:n-1-i};
+    if (l1>h3) return {type:'bearish', age:n-1-i};
+  }
+  return null;
+}
+function aggregateBars(highs, lows, closes, groupSize) {
+  const gH=[], gL=[], gC=[];
+  for (let i=0;i<closes.length;i+=groupSize){
+    const hS=highs.slice(i,i+groupSize), lS=lows.slice(i,i+groupSize), cS=closes.slice(i,i+groupSize);
+    if (!cS.length) continue;
+    gH.push(Math.max(...hS)); gL.push(Math.min(...lS)); gC.push(cS[cS.length-1]);
+  }
+  return {highs:gH, lows:gL, closes:gC};
+}
+function higherTimeframeBias(highs, lows, closes, groupSize, minBars=25) {
+  const agg = aggregateBars(highs, lows, closes, groupSize);
+  if (agg.closes.length<minBars) return null;
+  const e9=ema(agg.closes,9), e21=ema(agg.closes,21);
+  const adxRes = adx(agg.highs, agg.lows, agg.closes, 10);
+  return {
+    bullish: e9[e9.length-1]>e21[e21.length-1],
+    bearish: e9[e9.length-1]<e21[e21.length-1],
+    strong: !!(adxRes && adxRes.adx>=20),
   };
-  return '<svg class="ic" width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+(p[name]||'')+'</svg>';
 }
 
-function calcAmount(p, input){
-  if(!p) return 0;
-  if(p.calcType==='fixed') return p.value;
-  if(p.calcType==='percent') return (Number(input&&input.base)||0)*(p.value/100);
-  if(p.calcType==='permonth') return p.value*(Number(input&&input.months)||0);
-  if(p.calcType==='permonth_percent') return (Number(input&&input.base)||0)*(p.value/100)*(Number(input&&input.months)||0);
-  return 0;
-}
-function calcTypeLabel(t){
-  if(t==='fixed') return 'مبلغ ثابت';
-  if(t==='percent') return 'درصدی';
-  if(t==='permonth') return 'مبلغ ثابت هر ماه';
-  if(t==='permonth_percent') return 'درصدی هر ماه';
-  return t;
-}
-// ============================================================
-// رندرینگ اصلی
-// ============================================================
-function render(){
-  document.getElementById('app').innerHTML = renderApp();
-  updateSeoTags();
-}
-function updateSeoTags(){
-  var titleMap = {
-    intro:'انتخاب نوع مؤدی', questions:'پاسخ به سوالات تکالیف مالیاتی', obligations:'تکالیف مالیاتی شما',
-    license:'فعال‌سازی اشتراک', penalties:'جرایم مالیاتی', calc:'جمع‌بندی جرایم', layeha:'نمونه لایحه اعتراض',
-    consult:'مشاوره تخصصی مالیاتی', quota:'سقف استعلام رایگان'
-  };
-  var base = 'مالیار';
-  if (S.route === 'admin') { document.title = 'پنل مدیریت | ' + base; return; }
-  var t = titleMap[S.wiz.step];
-  document.title = t ? (t + ' | ' + base) : (base + ' | تکالیف، مواعد، جرایم و بخشودگی مالیاتی');
-}
+// ---------- امتیازدهی (عیناً منطق زندهٔ analyzeDaily/analyzeForex با تاییدیهٔ هفتگی) ----------
+// opts.weeklyVeto: آیا وتوی هفتگی باعث رد سیگنال بشه؟ (پیش‌فرض: بله)
+// opts.minRR: حداقل نسبت ریسک‌به‌ریوارد قابل قبول (پیش‌فرض: ۱.۵)
+function analyze(symbol, closes, highs, lows, vols, weeklyGroupSize, opts = {}) {
+  const weeklyVetoEnabled = opts.weeklyVeto !== false;
+  const minRR = opts.minRR ?? 1.5;
+  const useStructuralTarget = opts.useStructuralTarget === true;
+  const price = closes[closes.length-1];
+  if (closes.length<60) return null;
+  const rsiArr = rsi(closes,14);
+  const curRsi = rsiArr[rsiArr.length-1], prevRsi = rsiArr[rsiArr.length-2];
+  const ema20=ema(closes,20), ema50=ema(closes,50);
+  const hasEma200 = closes.length>=200;
+  const ema200 = hasEma200 ? ema(closes,200) : null;
+  const macdD = macd(closes);
+  const bb = bollinger(closes,20,2);
+  const curATR = atr(highs,lows,closes,14);
+  const avgVol = vols.slice(-20).reduce((a,b)=>a+b,0)/Math.max(1,vols.slice(-20).length);
+  const curVol = vols[vols.length-1];
+  const relVol = avgVol? curVol/avgVol : 1;
+  const adxRes = adx(highs,lows,closes,14);
+  const struct = structureBias(highs.slice(-60), lows.slice(-60));
+  const sweep = liquiditySweep(highs, lows, closes, 20);
+  const fvg = fairValueGap(highs, lows, closes, 15);
 
-function renderApp(){
-  return renderInstallBanner() +
-    renderHeader() +
-    '<main class="container">' +
-      renderDisclaimer() +
-      (S.route==='user' ? (S.authPhone ? renderUserWizard() : renderAuthGate()) : (S.adminAuthed ? renderAdminPanel() : renderAdminGate())) +
-    '</main>' +
-    renderFooter();
-}
+  let longScore=50, shortScore=50;
+  const e20=ema20[ema20.length-1], e50=ema50[ema50.length-1];
+  let tL=0, tS=0;
+  if (price>e20) tL+=10; else tS+=10;
+  if (e20>e50) tL+=10; else tS+=10;
+  if (hasEma200){
+    const e200=ema200[ema200.length-1];
+    if (price>e200 && e50>e200) tL+=15;
+    if (price<e200 && e50<e200) tS+=15;
+  } else { tL+=7; tS+=7; }
+  longScore+=tL; shortScore+=tS;
 
-function renderInstallBanner(){
-  if (!PWA.showBanner || PWA.dismissed) return '';
-  var brand = (CATALOG.meta && CATALOG.meta.brandName) || 'مالیار';
-  if (PWA.isIOS) {
-    return '<div class="install-banner"><div class="container install-banner-inner">' +
-      ic('download',16,'#fff') +
-      '<span>برای نصب «'+esc(brand)+'» روی گوشی: دکمهٔ اشتراک‌گذاری Safari را بزنید و «Add to Home Screen» را انتخاب کنید.</span>' +
-      '<button class="install-banner-close" onclick="dismissInstallBanner()">'+ic('x',14,'#fff')+'</button>' +
-    '</div></div>';
+  if (curRsi!==undefined){
+    if (curRsi>30 && curRsi<50 && curRsi>prevRsi) longScore+=10;
+    if (curRsi<70 && curRsi>50 && curRsi<prevRsi) shortScore+=10;
   }
-  return '<div class="install-banner"><div class="container install-banner-inner">' +
-    ic('download',16,'#fff') +
-    '<span>«'+esc(brand)+'» را روی دستگاه خود نصب کنید تا سریع‌تر و مثل یک اپ واقعی به آن دسترسی داشته باشید.</span>' +
-    '<button class="btn btn-sm" style="background:#fff;color:var(--ink);flex-shrink:0;" onclick="triggerInstallPrompt()">نصب</button>' +
-    '<button class="install-banner-close" onclick="dismissInstallBanner()">'+ic('x',14,'#fff')+'</button>' +
-  '</div></div>';
-}
-
-function renderApiPill(){
-  var label = apiStatus==='online' ? '🟢 متصل' : (apiStatus==='connecting' ? '🔄 اتصال...' : '🔴 آفلاین');
-  var cls = apiStatus==='online' ? 'online' : (apiStatus==='connecting' ? 'connecting' : 'offline');
-  return '<span class="sync-pill '+cls+'">'+ic('wifi',12)+'<span>'+label+'</span></span>';
-}
-
-function renderHeader(){
-  var meta = CATALOG.meta || {};
-  var actions = '';
-  if (S.route==='admin' && S.adminAuthed) actions = renderApiPill() + '<button class="btn btn-ghost btn-sm" onclick="logoutAdmin()">'+ic('logout',14)+' خروج</button>';
-  else if (S.route==='user') actions = renderApiPill();
-  return '<header class="site-header"><div class="container inner">' +
-    '<a href="#/" class="brand" style="text-decoration:none;">' +
-      '<div class="brand-badge">'+ic('shield',22,'#E7C878')+'</div>' +
-      '<div><div class="brand-name">'+esc(meta.brandName||'مالیار')+'</div><div class="brand-tagline">'+esc(meta.tagline||'دستیار هوشمند تکالیف مالیاتی')+'</div></div>' +
-    '</a>' +
-    '<div class="header-actions">'+actions+'</div>' +
-  '</div></header>';
-}
-
-function renderDisclaimer(){
-  var err = (apiStatus==='offline') ? '<div class="error-banner">'+ic('alert',15)+'<span>⚠️ اتصال به سرور برقرار نیست. لطفاً اتصال اینترنت را بررسی کنید.</span></div>' : '';
-  var note = '<div class="disclaimer">'+ic('shield',15)+'<span>مالیار یک ابزار راهنماست و جایگزین مشاورهٔ رسمی مالیاتی نیست؛ برای اقدامات قانونی حتماً با کارشناس مالیاتی هماهنگ کنید.</span></div>';
-  return note+err;
-}
-
-// کارت پیشنهاد ویژه — به‌جای نوار بالای صفحه، فقط در نقطه‌ای که کاربر
-// نتیجهٔ محاسبات را دیده (بیشترین آمادگی برای اقدام) نمایش داده می‌شود.
-function renderOfferCard(){
-  var m = CATALOG.meta || {};
-  if (!m.adEnabled || !m.adText) return '';
-  return '<div class="offer-card">' +
-    '<div class="offer-icon">'+ic('shield',18,'var(--gold)')+'</div>' +
-    '<div class="offer-body"><div class="offer-title">'+esc(m.adText)+'</div>' +
-    '<div class="offer-sub">کارشناسان مالیار در کوتاه‌ترین زمان پاسخ‌گوی شما هستند.</div></div>' +
-    '<button class="btn btn-gold btn-sm" onclick="goStep(\'consult\')">مشاوره</button>' +
-  '</div>';
-}
-
-function renderFooter(){
-  return '<footer style="padding:24px 0;text-align:center;font-size:12px;color:var(--ink-soft);border-top:1px solid var(--line);margin-top:20px;">© '+(new Date().getFullYear())+' '+esc((CATALOG.meta&&CATALOG.meta.brandName)||'مالیار')+'</footer>';
-}
-
-function logoutUser(){ lsDel('auth_phone'); S.authPhone=''; S.authName=''; restartWizard(); go(''); }
-function restoreAuthSession(){ var p=lsGet('auth_phone'); var n=lsGet('auth_name'); if(p){ S.authPhone=p; S.authName=n||''; } }
-function capturePendingReferral(){
-  try{
-    var params = new URLSearchParams(window.location.search);
-    var ref = (params.get('ref')||'').trim().toUpperCase();
-    if (ref) lsSet('pending_ref', ref);
-  }catch(e){}
-}
-
-// ============================================================
-// ورود کاربر
-// ============================================================
-function renderAuthGate(){
-  var terms = (CATALOG.meta && CATALOG.meta.termsText) || 'با استفاده از این سرویس، شرایط و قوانین استفاده از مالیار را می‌پذیرید.';
-  return '<div class="card narrow"><div class="lock-wrap"><div class="lock-badge">'+ic('users',22,'#E7C878')+'</div>' +
-    '<h1 style="font-size:17px;font-weight:800;margin:0;">ورود / ثبت‌نام</h1>' +
-    '<p class="muted" style="margin-top:6px;">مالیار به شما کمک می‌کند تکالیف، مواعد، جرایم و بخشودگی‌های مالیاتی خود را بر اساس قانون ببینید. برای شروع، نام و شماره موبایل خود را وارد کنید.</p></div>' +
-    '<label class="field"><span class="field-label">نام و نام خانوادگی</span><input type="text" id="authNameInput" placeholder="علی رضایی" /></label>' +
-    '<label class="field"><span class="field-label">شماره موبایل</span><input type="tel" id="authPhoneInput" placeholder="09xxxxxxxxx" onkeydown="if(event.key===\'Enter\')submitAuth();" /></label>' +
-    '<div class="block" style="margin-bottom:14px;"><div class="small-muted" style="max-height:120px;overflow-y:auto;line-height:1.9;margin-bottom:10px;">'+esc(terms)+'</div>' +
-    '<label class="checkbox-row"><input type="checkbox" id="authTermsInput" '+(S.authTermsAccepted?'checked':'')+' onchange="S.authTermsAccepted=this.checked; S.authError=\'\'; render();" /><span>شرایط و قوانین استفاده از این سرویس را می‌پذیرم.</span></label></div>' +
-    (S.authError?'<div class="field-error">'+esc(S.authError)+'</div>':'') +
-    '<div class="btn-row start"><button class="btn btn-gold" onclick="submitAuth()" '+((S.authLoading||!S.authTermsAccepted)?'disabled':'')+'>'+ic('check',15)+'<span>'+(S.authLoading?'در حال ورود...':'ورود و شروع')+'</span></button></div></div>';
-}
-
-async function submitAuth(){
-  var nameEl=document.getElementById('authNameInput'), phoneEl=document.getElementById('authPhoneInput');
-  var name=nameEl?nameEl.value.trim():'', phone=phoneEl?phoneEl.value.trim():'';
-  if(!S.authTermsAccepted){ S.authError='برای ادامه باید شرایط و قوانین را بپذیرید.'; render(); return; }
-  if(!name){ S.authError='نام را وارد کنید.'; render(); return; }
-  if(!IRAN_MOBILE_RE.test(phone)){ S.authError='شماره موبایل معتبر نیست.'; render(); return; }
-  S.authLoading = true; S.authError=''; render();
-  try{
-    var res = await Api.register(name, phone, lsGet('pending_ref')||'');
-    apiStatus = 'online';
-    var key = phone.replace(/^0/,'');
-    S.authPhone = key; S.authName = name; S.remaining = res.remaining; S.myRefCode = res.refCode || '';
-    lsSet('auth_phone', key); lsSet('auth_name', name); lsDel('pending_ref');
-    S.authLoading = false;
-    go('');
-  }catch(e){
-    apiStatus='offline';
-    S.authLoading = false;
-    S.authError = 'اتصال به سرور برقرار نشد. لطفاً دوباره تلاش کنید.';
-    render();
+  const h1=macdD.hist[macdD.hist.length-1], h2=macdD.hist[macdD.hist.length-2];
+  if (h2!==undefined && h1!==undefined){
+    if (h2<=0 && h1>0) longScore+=10;
+    if (h2>=0 && h1<0) shortScore+=10;
   }
-}
-
-// ============================================================
-// درخت سوالات
-// ============================================================
-function currentQuestion(){ return CATALOG.questions.find(function(q){ return q.id===S.wiz.qId; }) || null; }
-function fixedObligations(){ return CATALOG.obligations.filter(function(o){ return o.fixed && (!o.appliesTo || o.appliesTo.indexOf(S.wiz.personType)!==-1); }); }
-function derivedObligations(){
-  var fx={}; fixedObligations().forEach(function(o){ fx[o.id]=true; });
-  return CATALOG.obligations.filter(function(o){ return (fx[o.id]||S.wiz.triggered[o.id]) && (!o.appliesTo || o.appliesTo.indexOf(S.wiz.personType)!==-1); });
-}
-function relatedPenalties(){
-  var ids={};
-  derivedObligations().forEach(function(o){ (o.penaltyIds||[]).forEach(function(id){ ids[id]=true; }); });
-  return CATALOG.penalties.filter(function(p){ return ids[p.id]; });
-}
-function selectedPenalties(){ return relatedPenalties().filter(function(p){ return S.wiz.selected[p.id] && S.wiz.selected[p.id].checked; }); }
-function totalRawAmount(){ return selectedPenalties().reduce(function(s,p){ return s+calcAmount(p,S.wiz.selected[p.id]); },0); }
-function totalAmnestyAmount(){ return selectedPenalties().reduce(function(s,p){ var amt=calcAmount(p,S.wiz.selected[p.id]); return s+(p.amnestyEligible?amt*(1-p.amnestyPercent/100):amt); },0); }
-function buildLayeha(){
-  var tpl=CATALOG.templates.find(function(t){return t.id===S.wiz.templateId;})||CATALOG.templates[0];
-  if(!tpl) return '';
-  var list=selectedPenalties().map(function(p,i){ return (i+1)+'. '+p.title+' ('+(p.legalArticle||'')+') — '+toman(calcAmount(p,S.wiz.selected[p.id])); }).join('\n');
-  return tpl.body.split('{{taxpayerType}}').join(S.wiz.personType||'—')
-    .split('{{penaltiesList}}').join(list||'—')
-    .split('{{totalRaw}}').join(toman(totalRawAmount()))
-    .split('{{totalAmnesty}}').join(toman(totalAmnestyAmount()))
-    .split('{{date}}').join(new Date().toLocaleDateString('fa-IR'));
-}
-
-function isLicenseVerified(){ return !!lsGet('license_ok'); }
-// آیا کد فعال‌شدهٔ فعلی، دسترسی به این خدمت مشخص را هم پوشش می‌دهد؟
-// کدهای قدیمی‌تر که بدون scope ذخیره شده‌اند (قبل از این قابلیت)، مثل قبل دسترسی کامل دارند.
-function hasScopeAccess(key){
-  if (!isLicenseVerified()) return false;
-  var scope = lsGet('license_scope');
-  if (!scope || !scope.length) return true;
-  return scope.indexOf('all')!==-1 || scope.indexOf(key)!==-1;
-}
-function hasQuotaOrLicense(){ return (S.remaining===null || S.remaining>0) || hasScopeAccess('wizard'); }
-
-async function startWizard(type){
-  // همیشه اجازهٔ شروع و مشاهدهٔ تکالیف داده می‌شود؛ سهمیهٔ رایگان فقط تعیین می‌کند که آیا
-  // ادامهٔ مسیر (جرایم و بخشودگی) در همین اجرا بدون لایسنس هم آزاد است یا خیر.
-  var hadQuotaBeforeThisRun = hasQuotaOrLicense();
-  S.wiz.fullAccessGranted = hasScopeAccess('wizard') || hadQuotaBeforeThisRun;
-  if (!hasScopeAccess('wizard') && hadQuotaBeforeThisRun) {
-    try { var r = await Api.usage(S.authPhone); S.remaining = r.remaining; apiStatus='online'; }
-    catch(e){ apiStatus='offline'; }
+  let choppy=false;
+  if (adxRes){
+    if (adxRes.adx>=20 && adxRes.diPlus>adxRes.diMinus) longScore+=15;
+    if (adxRes.adx>=20 && adxRes.diMinus>adxRes.diPlus) shortScore+=15;
+    if (adxRes.adx<18) choppy=true;
   }
-  S.wiz.personType = type;
-  S.wiz.answers = {}; S.wiz.triggered = {};
-  var root = (CATALOG.meta.rootQuestion || {})[type];
-  S.wiz.qId = root || null;
-  if (root) go('wizard/questions'); else go('wizard/obligations');
-}
-
-function handleAnswer(optId){
-  var q = currentQuestion(); if(!q) return;
-  var opt = q.options.find(function(o){ return o.id===optId; });
-  if (!opt) return;
-  S.wiz.answers[q.id] = optId;
-  (opt.obligationIds||[]).forEach(function(id){ S.wiz.triggered[id]=true; });
-  if (opt.nextId) { S.wiz.qId = opt.nextId; render(); }
-  else { go('wizard/obligations'); }
-}
-
-function goStep(step){
-  if (step==='penalties' && !S.wiz.fullAccessGranted && !hasScopeAccess('wizard')) { go('wizard/license'); return; }
-  go('wizard/'+step);
-}
-function togglePenalty(id, checked){ S.wiz.selected[id]=Object.assign({}, S.wiz.selected[id]||{}, {checked:checked}); render(); }
-function setPenaltyInput(id, field, value){ S.wiz.selected[id]=Object.assign({}, S.wiz.selected[id]||{}); S.wiz.selected[id][field]=value; }
-function onEnterLayeha(){ if(!S.wiz.templateId) S.wiz.templateId=(CATALOG.templates[0]&&CATALOG.templates[0].id)||null; S.wiz.layehaText=buildLayeha(); goStep('layeha'); }
-function onTemplateChange(v){ S.wiz.templateId=v; S.wiz.layehaText=buildLayeha(); render(); }
-function onLayehaTextChange(v){ S.wiz.layehaText=v; }
-function copyLayehaText(){
-  var ta=document.getElementById('layehaTextArea'); var text=ta?ta.value:S.wiz.layehaText;
-  var done=function(){ S.wiz.copyMsg='✅ کپی شد'; render(); setTimeout(function(){ S.wiz.copyMsg=''; render(); },1800); };
-  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done).catch(function(){ S.wiz.copyMsg='کپی خودکار پشتیبانی نشد.'; render(); }); }
-  else { S.wiz.copyMsg='کپی خودکار پشتیبانی نشد.'; render(); }
-}
-function downloadLayehaText(){
-  var ta=document.getElementById('layehaTextArea'); var text=ta?ta.value:S.wiz.layehaText;
-  var blob=new Blob([text],{type:'text/plain;charset=utf-8'}); var url=URL.createObjectURL(blob);
-  var a=document.createElement('a'); a.href=url; a.download='layeha.txt'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-}
-function selectPlan(id){ S.wiz.lead.planId=id; render(); }
-
-async function submitLead(){
-  var nameEl=document.getElementById('leadNameInput'), phoneEl=document.getElementById('leadPhoneInput'), noteEl=document.getElementById('leadNoteInput');
-  S.wiz.lead.name=nameEl?nameEl.value:S.wiz.lead.name;
-  S.wiz.lead.phone=phoneEl?phoneEl.value:S.wiz.lead.phone;
-  S.wiz.lead.note=noteEl?noteEl.value:S.wiz.lead.note;
-  if(!S.wiz.lead.name || !IRAN_MOBILE_RE.test((S.wiz.lead.phone||'').trim())){ render(); return; }
-  var plan=CATALOG.plans.find(function(p){return p.id===S.wiz.lead.planId;});
-  var payload = {
-    name:S.wiz.lead.name, phone:S.wiz.lead.phone, note:S.wiz.lead.note,
-    planId:S.wiz.lead.planId, planTitle:plan?plan.title:'',
-    personType:S.wiz.personType, totalRaw:totalRawAmount()
-  };
-  S.wiz.sendStatus='sending'; S.wiz.leadSyncFailed=false; render();
-  try{
-    await Api.submitLead(payload);
-    apiStatus='online';
-    S.wiz.leadSent=true; S.wiz.sendStatus='sent';
-  }catch(e){
-    apiStatus='offline';
-    S.wiz.leadSent=false; S.wiz.sendStatus='error'; S.wiz.leadSyncFailed=true;
+  const dayReturn = closes[closes.length-1]-closes[closes.length-2];
+  if (relVol>1.3 && dayReturn>0) longScore+=8;
+  if (relVol>1.3 && dayReturn<0) shortScore+=8;
+  if (struct==='bullish') longScore+=8;
+  if (struct==='bearish') shortScore+=8;
+  if (sweep.bullish) longScore+=10;
+  if (sweep.bearish) shortScore+=10;
+  if (fvg && fvg.type==='bullish') longScore+=6;
+  if (fvg && fvg.type==='bearish') shortScore+=6;
+  if (bb){
+    if (price<=bb.lower*1.01) longScore+=5;
+    if (price>=bb.upper*0.99) shortScore+=5;
   }
-  render();
-}
 
-function restartWizard(){
-  S.wiz={step:'intro', personType:null, qId:null, answers:{}, triggered:{}, selected:{}, templateId:null, layehaText:'',
-    lead:{name:'', phone:'', note:'', planId:(CATALOG.plans[0]&&CATALOG.plans[0].id)||null},
-    leadSent:false, sendStatus:'idle', leadSyncFailed:false,
-    licenseInput:'', licenseError:'', licenseChecking:false, copyMsg:'',
-    fullAccessGranted:false, licenseReqSent:false, licenseReqSending:false,
-    serviceView:null, kbQuery:'', kbResults:null, kbSearching:false, kbAnswer:null, kbRemaining:null, kbRequireLicense:false,
-    myAuditChecked:{}, myReminders:[], myDataLoaded:false, reminderActivating:false, reminderMsg:'',
-    svcForm:{name:'', phone:'', note:'', caseNumber:'', file:null, fileId:null, fileName:'', uploading:false, uploadError:''},
-    svcSendStatus:'idle', svcSelectedPlanId:null};
-  go('');
-}
-
-async function submitQuotaLicense(){
-  var el=document.getElementById('quotaLicenseInput'); var code=el?el.value.trim():'';
-  S.wiz.licenseChecking=true; render();
-  try{
-    var r = await Api.verifyLicense(code, S.authPhone); apiStatus='online';
-    if (r.valid) { lsSet('license_ok', code); lsSet('license_scope', r.scope||['all']); S.wiz.licenseError=''; S.wiz.licenseChecking=false; go(''); }
-    else { S.wiz.licenseError = r.reason==='used_by_other' ? 'این کد قبلاً توسط شمارهٔ دیگری فعال شده و قابل استفادهٔ مجدد نیست.' : 'کد نامعتبر است.'; S.wiz.licenseChecking=false; render(); }
-  }catch(e){ apiStatus='offline'; S.wiz.licenseChecking=false; S.wiz.licenseError='خطا در برقراری ارتباط با سرور.'; render(); }
-}
-async function submitLicense(){
-  var el=document.getElementById('licenseInputEl'); var code=el?el.value.trim():'';
-  S.wiz.licenseChecking=true; render();
-  try{
-    var r = await Api.verifyLicense(code, S.authPhone); apiStatus='online';
-    if (r.valid) { lsSet('license_ok', code); lsSet('license_scope', r.scope||['all']); S.wiz.licenseError=''; S.wiz.licenseChecking=false; go('wizard/penalties'); }
-    else { S.wiz.licenseError = r.reason==='used_by_other' ? 'این کد قبلاً توسط شمارهٔ دیگری فعال شده و قابل استفادهٔ مجدد نیست.' : 'کد نامعتبر است.'; S.wiz.licenseChecking=false; render(); }
-  }catch(e){ apiStatus='offline'; S.wiz.licenseChecking=false; S.wiz.licenseError='خطا در برقراری ارتباط با سرور.'; render(); }
-}
-
-// ============================================================
-// رندر گام‌های ویزارد
-// ============================================================
-var WIZ_STEPS=["intro","questions","obligations","penalties","calc","layeha","consult"];
-var WIZ_LABELS=["سوالات","تکالیف شما","انتخاب جرایم","محاسبه","نمونه لایحه","مشاوره"];
-function renderProgressTabs(){
-  if(S.wiz.step==='intro'||S.wiz.step==='quota') return '';
-  var effectiveStep=S.wiz.step==='license'?'penalties':S.wiz.step;
-  var stepIndex=WIZ_STEPS.indexOf(effectiveStep);
-  var html='<div class="progress-tabs">';
-  WIZ_LABELS.forEach(function(label,i){ var idx=i+1; var active=stepIndex===idx; var done=stepIndex>idx; html+='<div class="progress-tab '+(active?'active':(done?'done':''))+'">'+(done?ic('check',12):'')+'<span>'+label+'</span></div>'; });
-  html+='</div>'; return html;
-}
-
-function renderUserWizard(){
-  var step=S.wiz.step, body='';
-  if(step==='intro') body=renderStepIntro();
-  else if(step==='quota') body=renderQuotaGate();
-  else if(step==='questions') body=renderStepQuestions();
-  else if(step==='obligations') body=renderStepObligations();
-  else if(step==='license') body=renderLicenseGateStep();
-  else if(step==='penalties') body=renderStepPenalties();
-  else if(step==='calc') body=renderStepCalc();
-  else if(step==='layeha') body=renderStepLayeha();
-  else if(step==='consult') body=renderStepConsult();
-  else if(step==='services') return renderServicesArea();
-  else body=renderStepIntro();
-  return renderProgressTabs()+body;
-}
-
-function renderStepIntro(){
-  var remain = S.remaining;
-  var quotaLine = isLicenseVerified() ? '<span class="quota-pill">'+ic('shield',12)+' اشتراک فعال</span>'
-    : '<span class="quota-pill">'+ic('info',12)+' '+(remain===null?'—':toFa(remain))+' اجرای کامل رایگان باقی‌مانده</span>';
-  var servicesBtn = '<button class="btn btn-services btn-sm" onclick="go(\'wizard/services\')">'+ic('branch',13)+' <span>خدمات آنلاین</span></button>';
-  return '<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">'+quotaLine +
-    '<div style="display:flex;gap:6px;flex-wrap:wrap;">'+servicesBtn+(S.authName?'<button class="btn btn-ghost btn-sm" onclick="logoutUser()">'+ic('logout',13)+' خروج ('+esc(S.authName)+')</button>':'')+'</div></div>' +
-    '<div class="section-eyebrow">گام اول</div><div class="section-title"><h1>نوع مؤدی خود را انتخاب کنید</h1></div>' +
-    '<p class="muted" style="margin-bottom:20px;">بر اساس نوع شخصیت، سوالات و تکالیف متفاوتی نمایش داده می‌شود — فقط سوالاتی که به وضعیت شما مربوط است پرسیده می‌شود.</p>' +
-    '<div class="grid2">' +
-      '<button class="choice-card" onclick="startWizard(\'حقیقی\')">'+ic('users',26,'#B8862E')+'<div class="title">شخص حقیقی</div><div class="desc">صاحبان مشاغل، فریلنسرها</div></button>' +
-      '<button class="choice-card" onclick="startWizard(\'حقوقی\')">'+ic('shield',26,'#B8862E')+'<div class="title">شخص حقوقی</div><div class="desc">شرکت‌ها و مؤسسات</div></button>' +
-    '</div></div>' + renderReferralCard();
-}
-
-// کارت دعوت از دوستان — فقط برای کاربران واردشده نمایش داده می‌شود
-function renderReferralCard(){
-  if (!S.authPhone) return '';
-  if (!S.myRefCode && !S.myRefCodeLoading) { loadMyRefCode(); }
-  if (!S.myRefCode) return '';
-  return '<div class="offer-card" style="border-inline-start-color:var(--green);">' +
-    '<div class="offer-icon">'+ic('users',18,'var(--green)')+'</div>' +
-    '<div class="offer-body"><div class="offer-title">دوستان‌تان را دعوت کنید</div>' +
-    '<div class="offer-sub">با هر ثبت‌نام از طریق لینک شما، هر دو یک استعلام رایگان اضافه می‌گیرید. کد شما: <b>'+esc(S.myRefCode)+'</b></div></div>' +
-    '<button class="btn btn-ghost btn-sm" onclick="copyReferralLink()">'+ic('copy',13)+'<span>'+(S.refCopyMsg||'کپی لینک')+'</span></button>' +
-  '</div>';
-}
-async function loadMyRefCode(){
-  S.myRefCodeLoading = true;
-  try{ var r = await Api.me(S.authPhone); if (r.refCode) S.myRefCode = r.refCode; apiStatus='online'; }catch(e){ apiStatus='offline'; }
-  S.myRefCodeLoading = false; render();
-}
-function copyReferralLink(){
-  var link = window.location.origin + window.location.pathname + '?ref=' + S.myRefCode;
-  function done(){ S.refCopyMsg='کپی شد!'; render(); setTimeout(function(){ S.refCopyMsg=''; render(); }, 1800); }
-  if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(link).then(done).catch(function(){ prompt('لینک دعوت شما:', link); }); }
-  else { prompt('لینک دعوت شما:', link); }
-}
-
-// دکمه/پیام مشترک «تماس برای دریافت کد فعال‌سازی» — هم شمارهٔ مدیر را نشان می‌دهد هم پیام به او ارسال می‌کند
-function renderLicenseHelper(context){
-  var meta = CATALOG.meta||{};
-  var phoneLine = meta.phone ? '<div class="small-muted" style="margin-top:6px;">برای دریافت کد فعال‌سازی می‌توانید مستقیم با شمارهٔ <b>'+esc(meta.phone)+'</b> تماس بگیرید.</div>' : '';
-  if (S.wiz.licenseReqSent) {
-    return phoneLine + '<div class="small-muted" style="margin-top:8px;color:var(--green);">✅ درخواست شما برای کارشناسان ما ارسال شد؛ به‌زودی با شما تماس می‌گیریم.</div>';
+  const weekly = higherTimeframeBias(highs, lows, closes, weeklyGroupSize, 25);
+  let weeklyVeto=null;
+  if (weekly){
+    if (weekly.bullish){ longScore+=12; if(weekly.strong) shortScore-=15; }
+    if (weekly.bearish){ shortScore+=12; if(weekly.strong) longScore-=15; }
+    if (weekly.strong && weekly.bullish) weeklyVeto='short';
+    if (weekly.strong && weekly.bearish) weeklyVeto='long';
   }
-  return phoneLine + '<button class="btn btn-ghost btn-sm" style="margin-top:10px;" '+(S.wiz.licenseReqSending?'disabled':'')+' onclick="requestLicenseCall(\''+context+'\')">'+ic('phone',13)+'<span>'+(S.wiz.licenseReqSending?'در حال ارسال...':'درخواست تماس برای دریافت کد فعال‌سازی')+'</span></button>';
-}
-async function requestLicenseCall(context){
-  S.wiz.licenseReqSending = true; render();
-  try{
-    await Api.licenseRequest({ name:S.authName, phone:S.authPhone, context:context });
-    apiStatus='online'; S.wiz.licenseReqSent = true;
-  }catch(e){ apiStatus='offline'; alert('ارسال درخواست ناموفق بود. لطفاً دوباره تلاش کنید یا مستقیم تماس بگیرید.'); }
-  S.wiz.licenseReqSending = false; render();
-}
 
-// فرم مشترک «فعال‌سازی اشتراک» — همان یک المان بصری در هر سه نقطهٔ ورود کد استفاده می‌شود
-// تا کاربر همیشه یک مفهوم و یک ظاهر یکسان از «فعال‌سازی» ببیند، نه چند فرم پراکنده با نام‌های مختلف.
-function renderActivationBody(opts){
-  return '<div class="lock-wrap"><div class="lock-badge">'+ic(opts.icon||'key',22,'#E7C878')+'</div><h2>'+esc(opts.title)+'</h2>' +
-    '<p>'+esc(opts.desc)+'</p></div>' +
-    '<label class="field"><span class="field-label">کد فعال‌سازی اشتراک</span><input type="text" id="'+opts.inputId+'" value="'+esc(opts.value||'')+'" placeholder="مثال: A1B2C3" '+(opts.oninput?('oninput="'+opts.oninput+'" '):'')+'onkeydown="if(event.key===\'Enter\')'+opts.submitFn+'();" /></label>' +
-    (S.wiz.licenseError?'<div class="field-error">'+esc(S.wiz.licenseError)+'</div>':'') +
-    '<div class="btn-row start">'+(opts.backBtn||'')+'<button class="btn btn-gold" onclick="'+opts.submitFn+'()" '+(S.wiz.licenseChecking?'disabled':'')+'>'+ic('key',15)+'<span>'+(S.wiz.licenseChecking?'در حال بررسی...':'فعال‌سازی')+'</span></button></div>' +
-    renderLicenseHelper(opts.context);
-}
+  longScore=Math.max(15,Math.min(97,longScore));
+  shortScore=Math.max(15,Math.min(97,shortScore));
+  if (choppy){ longScore=Math.min(longScore,62); shortScore=Math.min(shortScore,62); }
 
-function renderQuotaGate(){
-  var m=CATALOG.meta||{};
-  return '<div class="card narrow">'+renderActivationBody({
-    icon:'lock', title:'سقف استعلام رایگان تمام شد',
-    desc:'سهمیهٔ '+toFa(m.freeQueryLimit!=null?m.freeQueryLimit:2)+' اجرای رایگان مالیار استفاده شد. برای ادامه، اشتراک خود را فعال کنید.',
-    inputId:'quotaLicenseInput', submitFn:'submitQuotaLicense', context:'quota'
-  })+'</div>';
-}
+  const isLong = longScore>=shortScore;
+  let score = isLong? longScore: shortScore;
+  const atrPct = curATR? (curATR/price)*100 : 2;
 
-function renderLicenseGateStep(){
-  var backBtn = '<button class="btn btn-ghost" onclick="goStep(\'obligations\')">بازگشت</button>';
-  return '<div class="card narrow">'+renderActivationBody({
-    icon:'key', title:'فعال‌سازی اشتراک مالیار',
-    desc:'سهمیهٔ اجرای رایگان شما تمام شده؛ برای مشاهدهٔ جرایم و بخشودگی‌ها اشتراک خود را فعال کنید.',
-    inputId:'licenseInputEl', value:S.wiz.licenseInput, oninput:'S.wiz.licenseInput=this.value',
-    submitFn:'submitLicense', context:'penalties-gate', backBtn:backBtn
-  })+'</div>';
-}
+  if (weeklyVetoEnabled && weeklyVeto && ((isLong&&weeklyVeto==='long')||(!isLong&&weeklyVeto==='short'))) return {rejected:true};
 
-function renderStepQuestions(){
-  var q=currentQuestion(); if(!q) return renderStepObligations();
-  var optsHtml=q.options.map(function(opt){ return '<button class="option-btn" onclick="handleAnswer(\''+opt.id+'\')">'+esc(opt.label)+'</button>'; }).join('');
-  var answeredCount = Object.keys(S.wiz.answers).length;
-  return '<div class="card"><div class="section-eyebrow">سوال '+toFa(answeredCount+1)+'</div><h2 style="font-size:16px;font-weight:800;margin:6px 0 18px;">'+esc(q.text)+'</h2>'+optsHtml+'</div>';
-}
+  const swingLow=Math.min(...lows.slice(-20)), swingHigh=Math.max(...highs.slice(-20));
+  const atrSafe = curATR || price*0.02;
+  const sl = isLong? Math.min(swingLow, price-atrSafe*1.5) : Math.max(swingHigh, price+atrSafe*1.5);
+  const risk = Math.abs(price-sl);
 
-function renderStepObligations(){
-  var obls=derivedObligations();
-  var body = obls.length===0
-    ? '<p class="muted">با توجه به پاسخ‌های شما، تکلیف فوری خاصی شناسایی نشد.</p>'
-    : '<div class="stack">'+obls.map(function(o){
-        var penTitles=(o.penaltyIds||[]).map(function(pid){ var p=CATALOG.penalties.find(function(x){return x.id===pid;}); return p?(p.title+' ('+(p.legalArticle||'')+')'):null; }).filter(Boolean).join('، ');
-        return '<div class="block"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;"><div class="row-title" style="font-weight:800;font-size:13.5px;">'+esc(o.title)+'</div>'+(o.fixed?'<span class="badge badge-ink">ثابت</span>':'')+'</div>' +
-          '<div class="small-muted" style="margin-top:4px;line-height:1.8;">'+esc(o.description)+'</div>' +
-          '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;font-weight:700;color:var(--gold);">'+ic('calendar',13,'var(--gold)')+'<span>موعد: '+esc(o.deadline)+'</span></div>' +
-          (penTitles?'<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--red);">'+ic('alert',13,'var(--red)')+'<span>جریمه: '+esc(penTitles)+'</span></div>':'') +
-        '</div>';
-      }).join('')+'</div>';
-  return '<div class="card"><div class="section-eyebrow">گام دوم</div><div class="section-title"><h2>تکالیف مالیاتی شما</h2></div>'+body +
-    '<div class="btn-row"><button class="btn btn-ghost" onclick="goStep(\'intro\')">'+ic('right',15)+'<span>بازگشت</span></button>' +
-    '<button class="btn btn-primary" onclick="goStep(\'penalties\')"><span>مرحله بعد: جرایم</span>'+ic('left',15)+'</button></div></div>';
-}
-
-function renderStepPenalties(){
-  var rows = relatedPenalties();
-  var body = rows.length===0 ? '<p class="muted">با توجه به پاسخ‌های شما، جریمه‌ای برایتان شناسایی نشد.</p>' :
-    rows.map(function(p){
-      var s=S.wiz.selected[p.id]||{}; var extra='';
-      if(s.checked && (p.calcType==='percent'||p.calcType==='permonth_percent')){ extra+='<div style="margin-right:24px;margin-top:8px;max-width:260px;"><label class="field"><span class="field-label">مبلغ پایه (تومان)</span><input type="number" value="'+esc(s.base||'')+'" oninput="setPenaltyInput(\''+p.id+'\',\'base\',this.value)" placeholder="مثلاً 20000000" /></label></div>'; }
-      if(s.checked && (p.calcType==='permonth'||p.calcType==='permonth_percent')){ extra+='<div style="margin-right:24px;margin-top:8px;max-width:260px;"><label class="field"><span class="field-label">تعداد ماه‌ها</span><input type="number" value="'+esc(s.months||'')+'" oninput="setPenaltyInput(\''+p.id+'\',\'months\',this.value)" placeholder="مثلاً 3" /></label></div>'; }
-      return '<div class="block"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;"><label class="checkbox-row"><input type="checkbox" '+(s.checked?'checked':'')+' onchange="togglePenalty(\''+p.id+'\', this.checked)" /><span style="font-weight:800;">'+esc(p.title)+'</span></label><span class="badge badge-gold">مربوط به شما</span></div>' +
-        '<div class="small-muted" style="margin-right:24px;line-height:1.8;">'+esc(p.description)+' — '+calcTypeLabel(p.calcType)+' — ماده: '+esc(p.legalArticle||'-')+'</div>'+extra+'</div>';
-    }).join('');
-  return '<div class="card"><div class="section-eyebrow">گام سوم</div><div class="section-title"><h2>جرایم مربوط به شما</h2></div>' +
-    '<p class="muted" less style="margin-bottom:14px;">فقط جرایمی که به تکالیف شناسایی‌شدهٔ شما مربوط است نمایش داده می‌شود.</p><div class="stack">'+body+'</div>' +
-    '<div class="btn-row"><button class="btn btn-ghost" onclick="goStep(\'obligations\')">'+ic('right',15)+'<span>بازگشت</span></button>' +
-    '<button class="btn btn-primary" onclick="goStep(\'calc\')"><span>مرحله بعد: محاسبه</span>'+ic('left',15)+'</button></div></div>';
-}
-
-function renderStepCalc(){
-  var sel=selectedPenalties();
-  var body = sel.length===0 ? '<p class="muted">هیچ جریمه‌ای انتخاب نشده است.</p>' :
-    '<div class="stack">'+sel.map(function(p){
-      var amt=calcAmount(p,S.wiz.selected[p.id]); var discounted=p.amnestyEligible?amt*(1-p.amnestyPercent/100):amt;
-      return '<div class="block"><div style="font-weight:800;font-size:13.5px;margin-bottom:4px;">'+esc(p.title)+' <span class="small-muted">('+esc(p.legalArticle||'')+')</span></div>' +
-        '<div style="font-weight:800;font-size:13.5px;color:var(--red);">مبلغ: '+toman(amt)+'</div>' +
-        '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">' +
-        (p.amnestyEligible?'<span class="badge badge-green">بخشودگی تا '+toFa(p.amnestyPercent)+'٪ → '+toman(discounted)+'</span>':'<span class="badge badge-ink">غیرقابل بخشودگی</span>') +
-        (p.installmentEligible?'<span class="badge badge-gold">تقسیط تا '+toFa(p.maxInstallments)+' قسط</span>':'<span class="badge badge-ink">غیرقابل تقسیط</span>') +
-        '</div>' + (p.amnestyCondition?'<div class="small-muted" style="margin-top:6px;">شرط بخشودگی: '+esc(p.amnestyCondition)+'</div>':'') + '</div>';
-    }).join('') +
-    '<div class="summary-box"><div class="summary-row"><span>جمع کل</span><span>'+toman(totalRawAmount())+'</span></div><div class="summary-row"><span>با بخشودگی</span><span style="color:var(--gold-light);">'+toman(totalAmnestyAmount())+'</span></div></div>' +
-    '<div style="display:flex;align-items:flex-start;gap:6px;font-size:12px;color:var(--ink-soft);margin-top:4px;">'+ic('info',14)+'<span>ارقام برآوردی هستند و باید توسط کارشناس نهایی شود.</span></div></div>';
-  return '<div class="card"><div class="section-eyebrow">گام چهارم</div><div class="section-title"><h2>جمع‌بندی جرایم</h2></div>'+body +
-    renderOfferCard() +
-    '<div class="btn-row"><button class="btn btn-ghost" onclick="goStep(\'penalties\')">'+ic('right',15)+'<span>بازگشت</span></button>' +
-    '<button class="btn btn-primary" onclick="onEnterLayeha()"><span>مرحله بعد: لایحه</span>'+ic('left',15)+'</button></div></div>';
-}
-
-function renderStepLayeha(){
-  if(!S.wiz.layehaText) S.wiz.layehaText = buildLayeha();
-  var options=CATALOG.templates.map(function(t){ return '<option value="'+t.id+'" '+(t.id===S.wiz.templateId?'selected':'')+'>'+esc(t.title)+'</option>'; }).join('');
-  return '<div class="card"><div class="section-eyebrow">گام پنجم</div><div class="section-title"><h2>نمونه لایحه</h2></div>' +
-    '<label class="field"><span class="field-label">قالب لایحه</span><select onchange="onTemplateChange(this.value)">'+options+'</select></label>' +
-    '<label class="field"><span class="field-label">متن لایحه (قابل ویرایش)</span><textarea id="layehaTextArea" rows="10" oninput="onLayehaTextChange(this.value)">'+esc(S.wiz.layehaText)+'</textarea></label>' +
-    '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
-      '<button class="btn btn-ghost" onclick="copyLayehaText()">'+ic('copy',15)+'<span>کپی</span></button>' +
-      '<button class="btn btn-gold" onclick="downloadLayehaText()">'+ic('download',15)+'<span>دانلود</span></button>' +
-      (S.wiz.copyMsg?'<span class="small-muted" style="color:var(--green);">'+esc(S.wiz.copyMsg)+'</span>':'') +
-    '</div><div class="alert-box error" style="margin-top:14px;">نسخه رایگان پیش‌نویس عمومی است و باید توسط کارشناس نهایی شود.</div>' +
-    '<div class="btn-row"><button class="btn btn-ghost" onclick="goStep(\'calc\')">'+ic('right',15)+'<span>بازگشت</span></button>' +
-    '<button class="btn btn-primary" onclick="goStep(\'consult\')"><span>مرحله بعد: مشاوره</span>'+ic('left',15)+'</button></div></div>';
-}
-
-function renderStepConsult(){
-  var meta=CATALOG.meta||{};
-  var plansHtml=CATALOG.plans.map(function(pl){
-    var selected=S.wiz.lead.planId===pl.id;
-    return '<button class="lead-plan '+(selected?'selected':'')+'" onclick="selectPlan(\''+pl.id+'\')"><div class="p-title">'+esc(pl.title)+'</div><div class="p-dur">'+esc(pl.duration)+'</div>' +
-      '<div class="p-price" style="color:'+(pl.price===0?'var(--green)':'var(--gold)')+';">'+(pl.price===0?'رایگان':toman(pl.price))+'</div><div class="p-desc">'+esc(pl.desc)+'</div></button>';
-  }).join('');
-  var phoneValid=IRAN_MOBILE_RE.test((S.wiz.lead.phone||'').trim());
-  var formOrSuccess = S.wiz.leadSent ?
-    '<div class="success-box"><div class="title-row">'+ic('check',18)+'<span>درخواست ثبت شد.</span></div><div class="small-muted">به‌زودی کارشناسان با شما تماس می‌گیرند.</div></div>' :
-    (S.wiz.leadSyncFailed ?
-      '<div class="alert-box error"><b>⚠️ ثبت درخواست ناموفق بود.</b> لطفاً دوباره تلاش کنید یا مستقیماً با شماره '+esc(meta.phone||'')+' تماس بگیرید.</div>' : '') +
-    '<div class="grid2">' +
-      '<label class="field"><span class="field-label">نام و نام خانوادگی</span><input type="text" id="leadNameInput" value="'+esc(S.wiz.lead.name)+'" oninput="S.wiz.lead.name=this.value" placeholder="علی احمدی" /></label>' +
-      '<label class="field"><span class="field-label">شماره تماس</span><input type="tel" id="leadPhoneInput" value="'+esc(S.wiz.lead.phone)+'" oninput="S.wiz.lead.phone=this.value" placeholder="09xxxxxxxxx" />'+(S.wiz.lead.phone && !phoneValid?'<span class="field-error">شماره معتبر نیست</span>':'')+'</label>' +
-      '<div style="grid-column:1/-1;"><label class="field"><span class="field-label">توضیح (اختیاری)</span><textarea id="leadNoteInput" rows="2" oninput="S.wiz.lead.note=this.value">'+esc(S.wiz.lead.note)+'</textarea></label></div>' +
-      '<div style="grid-column:1/-1;"><button class="btn btn-gold" '+((!S.wiz.lead.name || !phoneValid || S.wiz.sendStatus==='sending')?'disabled':'')+' onclick="submitLead()">'+ic('phone',15)+'<span>'+(S.wiz.sendStatus==='sending'?'در حال ارسال...':'درخواست تماس')+'</span></button></div>' +
-    '</div>';
-  return '<div class="card"><div class="section-eyebrow">گام پایانی</div><div class="section-title"><h2>مشاورهٔ تخصصی مالیاتی</h2></div>' +
-    '<div class="block" style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:20px;">' +
-      '<div style="display:flex;align-items:center;gap:10px;">'+ic('phone',22,'var(--gold)')+'<div><div class="small-muted">تماس فوری</div><div style="font-weight:800;font-size:16px;">'+esc(meta.phone||'')+'</div></div></div>' +
-      (meta.whatsapp?'<a href="https://wa.me/'+meta.whatsapp.replace(/\D/g,'')+'" target="_blank" rel="noopener" class="btn" style="background:var(--green-soft);color:var(--green);">'+ic('whatsapp',15)+'<span>واتس‌اپ</span></a>':'') +
-    '</div><div class="grid3" style="margin-bottom:20px;">'+plansHtml+'</div>' +
-    '<div class="block" style="margin-bottom:20px;"><div style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:13.5px;margin-bottom:6px;">'+ic('branch',15,'var(--gold)')+'<span>سؤال و جواب آنلاین</span></div>' +
-    '<div class="small-muted" style="margin-bottom:10px;">چت با منابع تخصصی (چند سؤال رایگان)، بررسی مدارک توسط کارشناس، یا استعلام وضعیت پرونده — بدون نیاز به تماس تلفنی.</div>' +
-    '<button class="btn btn-services btn-sm" onclick="go(\'wizard/services\')">'+ic('left',13)+'<span>مشاهدهٔ خدمات آنلاین</span></button></div>' +
-    formOrSuccess +
-    '<div class="btn-row"><button class="btn btn-ghost" onclick="goStep(\'layeha\')">'+ic('right',15)+'<span>بازگشت</span></button>' +
-    '<button class="btn btn-ghost" onclick="restartWizard()"><span>شروع دوباره</span>'+ic('left',15)+'</button></div></div>';
-}
-
-// ============================================================
-// خدمات آنلاین (سؤال و جواب، یادآور، چک‌لیست حسابرسی)
-// ============================================================
-function servicePlan(key){ return (CATALOG.servicePlans||[]).find(function(p){ return p.serviceKey===key; }); }
-function servicePriceBadge(plan){
-  if(!plan) return '';
-  return plan.price===0 ? '<span class="badge badge-green">رایگان</span>' : '<span class="badge badge-gold">'+toman(plan.price)+'</span>';
-}
-
-async function ensureMyDataLoaded(){
-  if (S.wiz.myDataLoaded || !S.authPhone) return;
-  try{
-    var r = await Api.me(S.authPhone);
-    S.wiz.myAuditChecked = r.auditChecked || {};
-    S.wiz.myReminders = r.reminders || [];
-    S.wiz.myDataLoaded = true;
-    if (r.refCode) S.myRefCode = r.refCode;
-    apiStatus='online';
-  }catch(e){ apiStatus='offline'; }
-}
-
-function renderServicesArea(){
-  var view = S.wiz.serviceView;
-  if (!view) return renderServicesHub();
-  if (view==='chat') return renderServiceChat();
-  if (!hasScopeAccess(view)) {
-    return '<div class="card narrow">'+renderActivationBody({
-      icon:'lock', title:'نیاز به فعال‌سازی این خدمت',
-      desc:'برای استفاده از این خدمت، کد فعال‌سازی مخصوص آن را وارد کنید.',
-      inputId:'serviceLicenseInput', submitFn:'submitServiceLicense', context:'service-'+view
-    }) + '<div class="btn-row start"><button class="btn btn-ghost" onclick="go(\'wizard/services\')">'+ic('right',15)+'<span>بازگشت به خدمات</span></button></div></div>';
-  }
-  if (view==='upload') return renderServiceUpload();
-  if (view==='case') return renderServiceCase();
-  if (view==='reminder') return renderServiceReminder();
-  if (view==='audit') return renderServiceAudit();
-  return renderServicesHub();
-}
-async function submitServiceLicense(){
-  var el=document.getElementById('serviceLicenseInput'); var code=el?el.value.trim():'';
-  S.wiz.licenseChecking=true; render();
-  try{
-    var r = await Api.verifyLicense(code, S.authPhone); apiStatus='online';
-    if (r.valid) { lsSet('license_ok', code); lsSet('license_scope', r.scope||['all']); S.wiz.licenseError=''; S.wiz.licenseChecking=false; render(); }
-    else { S.wiz.licenseError = r.reason==='used_by_other' ? 'این کد قبلاً توسط شمارهٔ دیگری فعال شده و قابل استفادهٔ مجدد نیست.' : 'کد نامعتبر است.'; S.wiz.licenseChecking=false; render(); }
-  }catch(e){ apiStatus='offline'; S.wiz.licenseChecking=false; S.wiz.licenseError='خطا در برقراری ارتباط با سرور.'; render(); }
-}
-
-function renderServicesHub(){
-  var cards = [
-    { key:'chat', icon:'search', title:'چت با منابع تخصصی', desc:'جست‌وجو در منابعی که کارشناسان ما تهیه کرده‌اند — نه هوش مصنوعی آزاد.', freeNote:true },
-    { key:'upload', icon:'doc', title:'مشاورهٔ آنلاین با بررسی مدارک', desc:'برگ تشخیص یا مدارک خود را برای بررسی کارشناس آپلود کنید.' },
-    { key:'case', icon:'inbox', title:'بررسی وضعیت پروندهٔ مالیاتی', desc:'با شمارهٔ پرونده یا موبایل، از وضعیت پروندهٔ خود مطلع شوید.' },
-    { key:'reminder', icon:'calendar', title:'یادآور شخصی‌سازی‌شدهٔ مواعد', desc:'پیش از رسیدن موعد هر تکلیف، به شما اطلاع می‌دهیم.' },
-    { key:'audit', icon:'check', title:'چک‌لیست حسابرسی داخلی', desc:'خودارزیابی سریع وضعیت رعایت تکالیف مالیاتی‌تان.' }
-  ];
-  var html = cards.map(function(c){
-    var plan = servicePlan(c.key);
-    var badge = c.freeNote ? '<span class="badge badge-green">'+toFa((CATALOG.meta&&CATALOG.meta.chatFreeLimit)||2)+' سؤال رایگان</span>' : (hasScopeAccess(c.key) ? servicePriceBadge(plan) : '<span class="badge badge-ink">'+ic('lock',11)+' نیاز به فعال‌سازی</span>');
-    return '<button class="choice-card" style="text-align:right;" onclick="go(\'wizard/services/'+c.key+'\')">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;">'+ic(c.icon,24,'#B8862E')+badge+'</div>' +
-      '<div class="title" style="margin-top:8px;">'+esc(c.title)+'</div><div class="desc">'+esc(c.desc)+'</div></button>';
-  }).join('');
-  return '<div class="card"><div class="section-eyebrow">خدمات آنلاین</div><div class="section-title"><h2>چه کمکی نیاز دارید؟</h2></div>' +
-    '<div class="grid2">'+html+'</div>' +
-    '<div class="btn-row"><button class="btn btn-ghost" onclick="go(\'wizard/consult\')">'+ic('right',15)+'<span>بازگشت</span></button></div></div>';
-}
-
-function renderServiceHeader(title, key){
-  var plan = servicePlan(key);
-  return '<div class="section-eyebrow">خدمات آنلاین</div><div class="section-title-row"><div class="section-title tight"><h2>'+esc(title)+'</h2></div>'+servicePriceBadge(plan)+'</div>';
-}
-function renderServiceBackBtn(){
-  return '<div class="btn-row"><button class="btn btn-ghost" onclick="go(\'wizard/services\')">'+ic('right',15)+'<span>بازگشت به خدمات</span></button></div>';
-}
-
-// ---- ۱. چت با منابع (فقط از پایگاه دانش — بدون هوش مصنوعی پولی؛ حداکثر ۲ سؤال رایگان) ----
-function renderServiceChat(){
-  if (S.wiz.kbRequireLicense) {
-    return '<div class="card">'+renderServiceHeader('چت با منابع تخصصی', 'chat') +
-      renderActivationBody({
-        icon:'lock', title:'سقف سؤالات رایگان تمام شد',
-        desc:'برای ادامهٔ چت با منابع تخصصی، اشتراک خود را فعال کنید.',
-        inputId:'chatLicenseInput', submitFn:'submitChatLicense', context:'chat'
-      }) + '</div>' + renderServiceBackBtn();
-  }
-  var resultsHtml = '';
-  if (S.wiz.kbSearching) resultsHtml = '<p class="muted">در حال جست‌وجو...</p>';
-  else if (S.wiz.kbAnswer) {
-    var a = S.wiz.kbAnswer;
-    if (!a.found) {
-      resultsHtml = '<div class="alert-box error">'+ic('alert',14)+'<span>'+esc(a.message||'در منابع موجود پاسخی برای این سؤال یافت نشد.')+'</span></div>';
-    } else if (a.grounded) {
-      resultsHtml = '<div class="block"><div class="small-muted" style="margin-bottom:6px;">'+ic('shield',12,'var(--green)')+' پاسخ فقط بر اساس منابع (هوش مصنوعی رایگان)</div>' +
-        '<div style="line-height:2;white-space:pre-wrap;">'+esc(a.answer)+'</div>' +
-        (a.sources&&a.sources.length?'<div class="small-muted" style="margin-top:10px;">منابع: '+a.sources.map(function(s){return esc(s.title);}).join('، ')+'</div>':'') + '</div>';
+  // نکته مهم: منطق زندهٔ فعلی همیشه tp1 = price ± risk*1.5 هست — یعنی rr همیشه
+  // دقیقاً ۱.۵ می‌شه (چون tp1 خودش از روی ۱.۵×ریسک ساخته شده)، نه یک عدد متغیر
+  // بر اساس واقعیت بازار. برای همین فیلتر «حداقل RR» عملاً هیچ‌وقت چیزی رو رد
+  // نمی‌کنه (چون rr ثابته)، و آزمایش D_rr2 قبلی به‌همین‌دلیل صفر معامله داد.
+  // اینجا با opts.useStructuralTarget یک نسخهٔ آزمایشی اضافه شده که هدف رو از
+  // روی نزدیک‌ترین مقاومت/حمایت واقعی (نه ضرب ثابت) می‌گیره، تا rr واقعاً متغیر
+  // باشه و فیلتر RR معنا پیدا کنه. این فقط توی بک‌تسته؛ منطق زندهٔ scoring.js
+  // دست‌نخورده باقی مونده.
+  const atrTarget = isLong? price+risk*1.5 : price-risk*1.5;
+  let tp1 = atrTarget;
+  if (useStructuralTarget) {
+    const lookback = Math.min(80, closes.length-1);
+    const recentHighs = highs.slice(-lookback), recentLows = lows.slice(-lookback);
+    if (isLong) {
+      const candidates = recentHighs.filter(h=>h>price);
+      if (candidates.length) tp1 = Math.min(...candidates); // نزدیک‌ترین مقاومت بالای قیمت
     } else {
-      resultsHtml = '<div class="stack">'+(a.results||[]).map(function(r){
-        return '<div class="block"><div style="font-weight:800;font-size:13.5px;">'+esc(r.title)+'</div><div class="small-muted" style="margin-top:6px;line-height:1.9;">'+esc(r.content)+'</div></div>';
-      }).join('')+'</div>';
+      const candidates = recentLows.filter(l=>l<price);
+      if (candidates.length) tp1 = Math.max(...candidates); // نزدیک‌ترین حمایت زیر قیمت
     }
   }
-  var remainNote = (S.wiz.kbRemaining!=null && !hasScopeAccess('chat')) ? '<div class="small-muted" style="margin-top:10px;">'+toFa(S.wiz.kbRemaining)+' سؤال رایگان دیگر باقی مانده.</div>' : '';
-  return '<div class="card">'+renderServiceHeader('چت با منابع تخصصی', 'chat') +
-    '<div class="alert-box info" style="margin-bottom:14px;">'+ic('info',14)+'<span>این بخش فقط در منابعی که کارشناسان ما تهیه کرده‌اند پاسخ می‌جوید و چیزی از خودش نمی‌سازد؛ اگر پاسخ در منابع نباشد، همین را به شما می‌گوید.</span></div>' +
-    '<div class="search-wrap" style="margin-bottom:14px;"><span class="search-icon">'+ic('search',15)+'</span><input type="text" value="'+esc(S.wiz.kbQuery)+'" oninput="S.wiz.kbQuery=this.value" onkeydown="if(event.key===\'Enter\')doKbSearch();" placeholder="مثلاً: گروه‌بندی مودیان" /></div>' +
-    '<button class="btn btn-gold btn-sm" style="margin-bottom:16px;" '+(S.wiz.kbSearching?'disabled':'')+' onclick="doKbSearch()">'+ic('search',13)+'<span>پرسیدن</span></button>' +
-    resultsHtml + remainNote + '</div>' + renderServiceBackBtn();
-}
-async function doKbSearch(){
-  if (!S.wiz.kbQuery || !S.wiz.kbQuery.trim()) return;
-  S.wiz.kbSearching = true; S.wiz.kbAnswer=null; render();
-  try{
-    var r = await Api.kbAnswer(S.wiz.kbQuery, S.authPhone, hasScopeAccess('chat'));
-    apiStatus='online';
-    if (r.requireLicense) { S.wiz.kbRequireLicense = true; }
-    else { S.wiz.kbAnswer = r; S.wiz.kbRemaining = r.remaining; }
-  }catch(e){ apiStatus='offline'; S.wiz.kbAnswer = { found:false, message:'خطا در برقراری ارتباط با سرور.' }; }
-  S.wiz.kbSearching = false; render();
-}
-async function submitChatLicense(){
-  var el=document.getElementById('chatLicenseInput'); var code=el?el.value.trim():'';
-  S.wiz.licenseChecking = true; render();
-  try{
-    var r = await Api.verifyLicense(code, S.authPhone); apiStatus='online';
-    if (r.valid) { lsSet('license_ok', code); lsSet('license_scope', r.scope||['all']); S.wiz.licenseError=''; S.wiz.kbRequireLicense=false; S.wiz.licenseChecking=false; render(); }
-    else { S.wiz.licenseError = r.reason==='used_by_other' ? 'این کد قبلاً توسط شمارهٔ دیگری فعال شده و قابل استفادهٔ مجدد نیست.' : 'کد نامعتبر است.'; S.wiz.licenseChecking=false; render(); }
-  }catch(e){ apiStatus='offline'; S.wiz.licenseChecking=false; S.wiz.licenseError='خطا در برقراری ارتباط با سرور.'; render(); }
+  const rr = risk>0? Math.abs(tp1-price)/risk : 0;
+  if (rr<minRR || risk<=0) return {rejected:true};
+
+  return { symbol, isLong, score:Math.round(score), price, sl, tp1, rr };
 }
 
-// ---- ۲. مشاورهٔ آنلاین با آپلود مدرک ----
-function renderServiceUpload(){
-  var f = S.wiz.svcForm;
-  var phoneValid = IRAN_MOBILE_RE.test((f.phone||'').trim());
-  var plan = servicePlan('consultFile');
-  if (S.wiz.svcSendStatus==='sent') {
-    return '<div class="card">'+renderServiceHeader('مشاورهٔ آنلاین با بررسی مدارک', 'consultFile') +
-      '<div class="success-box"><div class="title-row">'+ic('check',18)+'<span>درخواست شما ثبت شد.</span></div><div class="small-muted">کارشناس ما پس از بررسی مدارک با شما تماس می‌گیرد.</div></div></div>' + renderServiceBackBtn();
+// ---------- شبیه‌سازی رو به جلو ----------
+function simulateForward(highs, lows, closes, startIdx, direction, sl, tp1) {
+  for (let i=startIdx+1; i<=Math.min(startIdx+HOLD_DAYS, closes.length-1); i++){
+    const hitSL = direction==='long'? lows[i]<=sl : highs[i]>=sl;
+    const hitTP = direction==='long'? highs[i]>=tp1 : lows[i]<=tp1;
+    if (hitSL) return {outcome:'SL', days:i-startIdx};
+    if (hitTP) return {outcome:'TP', days:i-startIdx};
   }
-  return '<div class="card">'+renderServiceHeader('مشاورهٔ آنلاین با بررسی مدارک', 'consultFile') +
-    (plan && plan.price>0 ? '<div class="alert-box info">'+ic('info',14)+'<span>هزینهٔ این خدمت '+toman(plan.price)+' است؛ پس از ثبت درخواست، کارشناس برای هماهنگی پرداخت و بررسی با شما تماس می‌گیرد.</span></div>' : '') +
-    '<div class="grid2" style="margin-top:10px;">' +
-      '<label class="field"><span class="field-label">نام و نام خانوادگی</span><input type="text" value="'+esc(f.name)+'" oninput="S.wiz.svcForm.name=this.value" /></label>' +
-      '<label class="field"><span class="field-label">شماره تماس</span><input type="tel" value="'+esc(f.phone)+'" oninput="S.wiz.svcForm.phone=this.value" placeholder="09xxxxxxxxx" />'+(f.phone && !phoneValid?'<span class="field-error">شماره معتبر نیست</span>':'')+'</label>' +
-      '<div style="grid-column:1/-1;"><label class="field"><span class="field-label">توضیح</span><textarea rows="2" oninput="S.wiz.svcForm.note=this.value">'+esc(f.note)+'</textarea></label></div>' +
-      '<div style="grid-column:1/-1;"><label class="field"><span class="field-label">مدرک (برگ تشخیص، اظهارنامه و...) — حداکثر ۴ مگابایت</span><input type="file" id="svcFileInput" onchange="onSvcFileSelected(this)" />'+(f.fileName?'<div class="small-muted" style="margin-top:6px;color:var(--green);">✅ '+esc(f.fileName)+' آماده ارسال</div>':'')+(f.uploadError?'<div class="field-error">'+esc(f.uploadError)+'</div>':'')+'</label></div>' +
-      '<div style="grid-column:1/-1;"><button class="btn btn-gold" '+((!f.name||!phoneValid||f.uploading||S.wiz.svcSendStatus==='sending')?'disabled':'')+' onclick="submitServiceUpload()">'+ic('phone',15)+'<span>'+(f.uploading?'در حال آپلود مدرک...':(S.wiz.svcSendStatus==='sending'?'در حال ارسال...':'ثبت درخواست'))+'</span></button></div>' +
-    '</div></div>' + renderServiceBackBtn();
+  return {outcome:'TIMEOUT', days:HOLD_DAYS};
 }
-function onSvcFileSelected(el){
-  var file = el.files && el.files[0];
-  if (!file) return;
-  if (file.size > 4*1024*1024) { S.wiz.svcForm.uploadError = 'حجم فایل نباید بیشتر از ۴ مگابایت باشد.'; render(); return; }
-  S.wiz.svcForm.uploadError = '';
-  S.wiz.svcForm.uploading = true; render();
-  var reader = new FileReader();
-  reader.onload = async function(){
-    try{
-      var base64 = reader.result.split(',')[1];
-      var r = await Api.upload(file.name, file.type||'application/octet-stream', base64);
-      S.wiz.svcForm.fileId = r.fileId; S.wiz.svcForm.fileName = file.name;
-      apiStatus='online';
-    }catch(e){
-      apiStatus='offline';
-      S.wiz.svcForm.uploadError = 'آپلود فایل ناموفق بود. دوباره تلاش کنید.';
-    }
-    S.wiz.svcForm.uploading = false; render();
+
+// opts.minScore: حداقل امتیاز برای صدور سیگنال (پیش‌فرض: ۷۰) — بقیهٔ opts به analyze() پاس داده می‌شه
+function backtestSeries(symbol, closes, highs, lows, vols, weeklyGroupSize, opts = {}) {
+  const minScore = opts.minScore ?? 70;
+  const trades = [];
+  for (let i=259; i<closes.length-1; i++){
+    const r = analyze(symbol, closes.slice(0,i+1), highs.slice(0,i+1), lows.slice(0,i+1), vols.slice(0,i+1), weeklyGroupSize, opts);
+    if (!r || r.rejected || r.score<minScore) continue;
+    const direction = r.isLong? 'long':'short';
+    const sim = simulateForward(highs, lows, closes, i, direction, r.sl, r.tp1);
+    const rMultiple = sim.outcome==='TP'? r.rr : sim.outcome==='SL'? -1 :
+      (direction==='long'? (closes[Math.min(i+HOLD_DAYS,closes.length-1)]-r.price)/Math.abs(r.price-r.sl)
+                          : (r.price-closes[Math.min(i+HOLD_DAYS,closes.length-1)])/Math.abs(r.price-r.sl));
+    trades.push({ dayIndex:i, direction, score:r.score, outcome:sim.outcome, rMultiple:+rMultiple.toFixed(2) });
+  }
+  return trades;
+}
+
+function summarize(trades) {
+  const n = trades.length;
+  if (!n) return { trades: 0 };
+  const wins = trades.filter(t=>t.rMultiple>0).length;
+  const avgR = trades.reduce((a,t)=>a+t.rMultiple,0)/n;
+  const grossWin = trades.filter(t=>t.rMultiple>0).reduce((a,t)=>a+t.rMultiple,0);
+  const grossLoss = Math.abs(trades.filter(t=>t.rMultiple<0).reduce((a,t)=>a+t.rMultiple,0));
+  return { trades:n, wins, losses:n-wins, win_rate_pct:+((wins/n)*100).toFixed(1),
+    avg_r_multiple:+avgR.toFixed(2), profit_factor: grossLoss>0? +(grossWin/grossLoss).toFixed(2) : null };
+}
+
+// first-half vs second-half split — an honest consistency check: if the edge
+// only shows up in one half, that's a red flag for regime-specific luck
+// rather than a real, repeatable edge (not a true train/test split since no
+// parameter fitting happened against this data — but still a useful sanity check)
+function splitHalves(trades, totalBars) {
+  const mid = totalBars / 2;
+  const firstHalf = trades.filter(t => t.dayIndex < mid);
+  const secondHalf = trades.filter(t => t.dayIndex >= mid);
+  return { firstHalf: summarize(firstHalf), secondHalf: summarize(secondHalf) };
+}
+
+// ---------- دریافت داده ----------
+// کمکی: متن خام رو می‌گیره و parse می‌کنه؛ اگه JSON نبود، به‌جای خطای مبهم
+// "Expected property name..."، خود متن خام (تا حد مشخص) رو توی خطا می‌ذاره
+// تا توی لاگ GitHub Actions دقیقاً ببینیم سرور چی برگردونده (بلاک شدن، ریت‌لیمیت، HTML و...).
+function parseJsonOrThrowWithRaw(rawText, sourceLabel) {
+  try {
+    return JSON.parse(rawText);
+  } catch (e) {
+    const snippet = rawText.slice(0, 400).replace(/\s+/g, ' ').trim();
+    throw new Error(`${sourceLabel}: پاسخ JSON نبود — متن خام: "${snippet}"${rawText.length > 400 ? '…' : ''}`);
+  }
+}
+
+async function fetchCryptoDaily(symbol) {
+  // Bybit مسدوده: توی اجرای GitHub Actions با خطای ۴۰۳ CloudFront (بلاک جغرافیایی)
+  // مواجه شدیم — این ربطی به کد ما نداره، زیرساخت Bybit از کشور/دیتاسنتر ران‌رهای
+  // GitHub Actions جلوگیری می‌کنه. برای بک‌تست به Twelve Data (همون سرویس فارکس)
+  // سوییچ کردیم چون کلیدش رو از قبل داریم و مسدود نیست.
+  // ⚠️ توجه: این فقط توی بک‌تسته. موتور زندهٔ کریپتو (worker/src/datasources.js)
+  // هنوز از Bybit استفاده می‌کنه — قبل از سوییچ اون هم، حتماً تست کن ببین سیگنال
+  // زندهٔ کریپتو الان توی اپ واقعاً کار می‌کنه یا نه (شاید فقط ران‌رهای GitHub
+  // بلاک باشن، نه لبهٔ Cloudflare Worker که جای دیگه‌ای اجرا می‌شه).
+  if (!TWELVE_DATA_KEY) throw new Error('TWELVE_DATA_API_KEY تنظیم نشده');
+  const tdSymbol = TWELVE_DATA_SYMBOL_OVERRIDES[symbol] || symbol;
+  const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(tdSymbol + '/USD')}&interval=1day&outputsize=730&order=ASC&apikey=${TWELVE_DATA_KEY}`;
+  const res = await fetch(url);
+  const rawText = await res.text();
+  if (!res.ok) throw new Error(`Twelve Data HTTP ${res.status} — متن خام: "${rawText.slice(0, 400)}"`);
+  const json = parseJsonOrThrowWithRaw(rawText, 'Twelve Data (کریپتو)');
+  if (json.status==='error') throw new Error(json.message);
+  const rows = json?.values;
+  if (!Array.isArray(rows) || rows.length<260) throw new Error('داده ناکافی برای ' + symbol);
+  // توجه: order=ASC یعنی Twelve Data خودش صعودی (قدیم→جدید) برمی‌گردونه —
+  // برخلاف Bybit که نزولی می‌داد و نیاز به reverse داشت. اینجا reverse لازم نیست.
+  return {
+    closes: rows.map(d=>parseFloat(d.close)), highs: rows.map(d=>parseFloat(d.high)),
+    lows: rows.map(d=>parseFloat(d.low)), vols: rows.map(d=>parseFloat(d.volume)||0),
   };
-  reader.readAsDataURL(file);
-}
-async function submitServiceUpload(){
-  var f = S.wiz.svcForm;
-  var plan = servicePlan('consultFile');
-  S.wiz.svcSendStatus='sending'; render();
-  try{
-    await Api.serviceRequest({ name:f.name, phone:f.phone, note:f.note, serviceKey:'consultFile', planId:plan?plan.id:null, planTitle:plan?plan.title:'', fileId:f.fileId, fileName:f.fileName });
-    apiStatus='online'; S.wiz.svcSendStatus='sent';
-  }catch(e){ apiStatus='offline'; S.wiz.svcSendStatus='error'; alert('ثبت درخواست ناموفق بود. دوباره تلاش کنید.'); }
-  render();
 }
 
-// ---- ۳. بررسی وضعیت پروندهٔ مالیاتی ----
-function renderServiceCase(){
-  var f = S.wiz.svcForm;
-  var plan = servicePlan('caseCheck');
-  if (S.wiz.svcSendStatus==='sent') {
-    return '<div class="card">'+renderServiceHeader('بررسی وضعیت پروندهٔ مالیاتی', 'caseCheck') +
-      '<div class="success-box"><div class="title-row">'+ic('check',18)+'<span>درخواست بررسی ثبت شد.</span></div><div class="small-muted">نتیجه از طریق تماس یا پیامک به شما اطلاع داده می‌شود.</div></div></div>' + renderServiceBackBtn();
+async function fetchForexDaily(pair) {
+  if (!TWELVE_DATA_KEY) throw new Error('TWELVE_DATA_API_KEY تنظیم نشده');
+  const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(pair)}&interval=1day&outputsize=730&order=ASC&apikey=${TWELVE_DATA_KEY}`;
+  const res = await fetch(url);
+  const rawText = await res.text();
+  if (!res.ok) throw new Error(`Twelve Data HTTP ${res.status} — متن خام: "${rawText.slice(0, 400)}"`);
+  const json = parseJsonOrThrowWithRaw(rawText, 'Twelve Data');
+  if (json.status==='error') throw new Error(json.message);
+  const rows = json?.values;
+  if (!Array.isArray(rows) || rows.length<260) throw new Error('داده ناکافی');
+  return {
+    closes: rows.map(r=>parseFloat(r.close)), highs: rows.map(r=>parseFloat(r.high)),
+    lows: rows.map(r=>parseFloat(r.low)), vols: rows.map(r=>parseFloat(r.volume)||0),
+  };
+}
+
+async function main() {
+  const allCryptoTrades = [];
+  const cryptoPerSymbol = [];
+  console.log('=== بک‌تست کریپتو (Twelve Data، ۲۰ ارز، تایم‌فریم روزانه) ===');
+  for (const sym of CRYPTO_UNIVERSE) {
+    try {
+      const d = await fetchCryptoDaily(sym);
+      const trades = backtestSeries(sym+'USDT', d.closes, d.highs, d.lows, d.vols, 7);
+      console.log(`  ${sym}: ${trades.length} معامله`);
+      cryptoPerSymbol.push({ symbol: sym, summary: summarize(trades), totalBars: d.closes.length });
+      allCryptoTrades.push(...trades.map(t=>({...t, _bars: d.closes.length})));
+    } catch(e) { console.log(`  ${sym}: رد شد — ${e.message}`); }
+    await new Promise(r=>setTimeout(r,8000)); // Twelve Data free tier: 8 req/min (قبلاً برای Bybit 250ms بود)
   }
-  var phoneValid = IRAN_MOBILE_RE.test((f.phone||'').trim());
-  return '<div class="card">'+renderServiceHeader('بررسی وضعیت پروندهٔ مالیاتی', 'caseCheck') +
-    (plan && plan.price>0 ? '<div class="alert-box info">'+ic('info',14)+'<span>هزینهٔ این خدمت '+toman(plan.price)+' است.</span></div>' : '') +
-    '<div class="grid2" style="margin-top:10px;">' +
-      '<label class="field"><span class="field-label">نام و نام خانوادگی</span><input type="text" value="'+esc(f.name)+'" oninput="S.wiz.svcForm.name=this.value" /></label>' +
-      '<label class="field"><span class="field-label">شماره موبایل</span><input type="tel" value="'+esc(f.phone)+'" oninput="S.wiz.svcForm.phone=this.value" placeholder="09xxxxxxxxx" />'+(f.phone && !phoneValid?'<span class="field-error">شماره معتبر نیست</span>':'')+'</label>' +
-      '<div style="grid-column:1/-1;"><label class="field"><span class="field-label">شمارهٔ پروندهٔ مالیاتی (اختیاری — اگر ندارید خالی بگذارید)</span><input type="text" value="'+esc(f.caseNumber)+'" oninput="S.wiz.svcForm.caseNumber=this.value" /></label></div>' +
-      '<div style="grid-column:1/-1;"><label class="field"><span class="field-label">توضیح (اختیاری)</span><textarea rows="2" oninput="S.wiz.svcForm.note=this.value">'+esc(f.note)+'</textarea></label></div>' +
-      '<div style="grid-column:1/-1;"><button class="btn btn-gold" '+((!f.name||!phoneValid||S.wiz.svcSendStatus==='sending')?'disabled':'')+' onclick="submitServiceCase()">'+ic('search',15)+'<span>'+(S.wiz.svcSendStatus==='sending'?'در حال ارسال...':'درخواست بررسی')+'</span></button></div>' +
-    '</div></div>' + renderServiceBackBtn();
-}
-async function submitServiceCase(){
-  var f = S.wiz.svcForm;
-  var plan = servicePlan('caseCheck');
-  S.wiz.svcSendStatus='sending'; render();
-  try{
-    await Api.serviceRequest({ name:f.name, phone:f.phone, note:f.note, caseNumber:f.caseNumber, serviceKey:'caseCheck', planId:plan?plan.id:null, planTitle:plan?plan.title:'' });
-    apiStatus='online'; S.wiz.svcSendStatus='sent';
-  }catch(e){ apiStatus='offline'; S.wiz.svcSendStatus='error'; alert('ثبت درخواست ناموفق بود. دوباره تلاش کنید.'); }
-  render();
-}
 
-// ---- ۴. یادآور شخصی‌سازی‌شدهٔ مواعد ----
-function renderServiceReminder(){
-  if (!S.wiz.myDataLoaded) { ensureMyDataLoaded().then(render); return '<div class="card"><p class="muted">در حال بارگذاری...</p></div>'; }
-  var triggeredIds = Object.keys(S.wiz.triggered||{});
-  var hasFromWizard = triggeredIds.length>0;
-  var activeList = S.wiz.myReminders||[];
-  var body = '';
-  if (activeList.length){
-    body += '<div class="stack" style="margin-bottom:16px;">'+activeList.map(function(r){
-      var ob = CATALOG.obligations.find(function(o){return o.id===r.obligationId;});
-      var title = ob?ob.title:r.obligationId;
-      return '<div class="block"><div style="font-weight:800;font-size:13.5px;">'+esc(title)+'</div><div class="small-muted" style="margin-top:4px;">یادآوری حدود: '+new Date(r.dueAt).toLocaleDateString('fa-IR')+' — '+(r.sent?'<span style="color:var(--green);">ارسال شد</span>':'در انتظار')+'</div></div>';
-    }).join('')+'</div>';
+  // ۴ نسخهٔ مقایسه‌ای از موتور فارکس — روی همون داده‌های دریافتی (بدون فراخوانی اضافهٔ API)
+  // تا با عدد واقعی ببینیم کدوم تنظیم واقعاً مثبت می‌شه، نه با حدس
+  const FOREX_VARIANTS = [
+    { key: 'A_baseline',        label: 'پایه (فعلی: وتوی هفتگی + آستانهٔ ۷۰ + RR>=1.5)', weeklyVeto: true,  minScore: 70, minRR: 1.5 },
+    { key: 'B_no_weekly_veto',  label: 'بدون وتوی هفتگی (آستانهٔ ۷۰ + RR>=1.5)',           weeklyVeto: false, minScore: 70, minRR: 1.5 },
+    { key: 'C_score80',        label: 'آستانهٔ امتیاز ۸۰ (وتوی هفتگی + RR>=1.5)',          weeklyVeto: true,  minScore: 80, minRR: 1.5 },
+    { key: 'D_rr2',            label: 'حداقل R:R = ۲ (وتوی هفتگی + آستانهٔ ۷۰)',            weeklyVeto: true,  minScore: 70, minRR: 2   },
+    { key: 'E_structural_rr1.5', label: 'هدف واقعی از مقاومت/حمایت + RR>=1.5 (نه ضرب ثابت)', weeklyVeto: true, minScore: 70, minRR: 1.5, useStructuralTarget: true },
+    { key: 'F_structural_rr2',   label: 'هدف واقعی از مقاومت/حمایت + حداقل RR=۲',            weeklyVeto: true, minScore: 70, minRR: 2,   useStructuralTarget: true },
+  ];
+
+  let forexResult = null;
+  if (TWELVE_DATA_KEY) {
+    console.log(`\n=== بک‌تست فارکس (Twelve Data، ${FOREX_UNIVERSE.length} جفت‌ارز، تایم‌فریم روزانه) ===`);
+    const variantTrades = Object.fromEntries(FOREX_VARIANTS.map(v => [v.key, []]));
+    const variantPerSymbol = Object.fromEntries(FOREX_VARIANTS.map(v => [v.key, []]));
+    const fetchErrors = [];
+
+    for (const pair of FOREX_UNIVERSE) {
+      try {
+        const d = await fetchForexDaily(pair);
+        for (const variant of FOREX_VARIANTS) {
+          const trades = backtestSeries(pair.replace('/',''), d.closes, d.highs, d.lows, d.vols, 5, variant);
+          variantTrades[variant.key].push(...trades);
+          variantPerSymbol[variant.key].push({ symbol: pair, summary: summarize(trades) });
+        }
+        console.log(`  ${pair}: دریافت شد — ${FOREX_VARIANTS.map(v => `${v.key}=${variantTrades[v.key].length}`).join(', ')} (تجمعی)`);
+      } catch(e) {
+        console.log(`  ${pair}: رد شد — ${e.message}`);
+        fetchErrors.push({ pair, error: e.message });
+      }
+      await new Promise(r=>setTimeout(r,8000)); // Twelve Data free tier: 8 req/min
+    }
+
+    forexResult = {
+      variants: Object.fromEntries(FOREX_VARIANTS.map(v => [v.key, {
+        label: v.label,
+        settings: { weeklyVeto: v.weeklyVeto, minScore: v.minScore, minRR: v.minRR },
+        overall: summarize(variantTrades[v.key]),
+        per_pair: variantPerSymbol[v.key],
+      }])),
+      fetch_errors: fetchErrors,
+      // برای سازگاری با نسخه‌های قبلی داشبورد که forex.overall/per_pair می‌خونن
+      overall: summarize(variantTrades['A_baseline']),
+      per_pair: variantPerSymbol['A_baseline'],
+    };
+
+    console.log('\n=== مقایسهٔ ۴ نسخهٔ فارکس ===');
+    for (const v of FOREX_VARIANTS) {
+      console.log(`  ${v.key} (${v.label}):`, forexResult.variants[v.key].overall);
+    }
   } else {
-    body += '<p class="muted" style="margin-bottom:16px;">هنوز یادآوری فعالی ندارید.</p>';
-  }
-  if (hasFromWizard) {
-    body += '<div class="block"><div class="small-muted" style="margin-bottom:8px;">'+toFa(triggeredIds.length)+' تکلیف از مسیر تشخیصی اخیر شما شناسایی شده. می‌توانید یادآور آن‌ها را فعال کنید.</div>' +
-      '<button class="btn btn-gold btn-sm" '+(S.wiz.reminderActivating?'disabled':'')+' onclick="activateReminders()">'+ic('calendar',13)+'<span>'+(S.wiz.reminderActivating?'در حال فعال‌سازی...':'فعال‌سازی یادآور برای این تکالیف')+'</span></button></div>';
-  } else {
-    body += '<div class="alert-box info">'+ic('info',14)+'<span>برای فعال‌سازی یادآور، ابتدا مراحل تشخیص تکالیف (سوالات) را کامل کنید.</span></div>';
-  }
-  if (S.wiz.reminderMsg) body += '<div class="small-muted" style="margin-top:10px;color:var(--green);">'+esc(S.wiz.reminderMsg)+'</div>';
-  return '<div class="card">'+renderServiceHeader('یادآور شخصی‌سازی‌شدهٔ مواعد', 'reminder') + body + '</div>' + renderServiceBackBtn();
-}
-async function activateReminders(){
-  S.wiz.reminderActivating = true; render();
-  try{
-    var ids = Object.keys(S.wiz.triggered||{});
-    var r = await Api.saveObligations(S.authPhone, S.wiz.personType, ids);
-    apiStatus='online';
-    S.wiz.myDataLoaded = false;
-    await ensureMyDataLoaded();
-    S.wiz.reminderMsg = '✅ یادآور '+toFa(r.remindersCount)+' تکلیف فعال شد.';
-  }catch(e){ apiStatus='offline'; S.wiz.reminderMsg = '❌ فعال‌سازی ناموفق بود.'; }
-  S.wiz.reminderActivating = false; render();
-}
-
-// ---- ۵. چک‌لیست حسابرسی داخلی ----
-function renderServiceAudit(){
-  if (!S.wiz.myDataLoaded) { ensureMyDataLoaded().then(render); return '<div class="card"><p class="muted">در حال بارگذاری...</p></div>'; }
-  var items = CATALOG.auditChecklist||[];
-  var checked = S.wiz.myAuditChecked||{};
-  var doneCount = items.filter(function(i){ return checked[i.id]; }).length;
-  var rows = items.map(function(i){
-    return '<label class="checkbox-row"><input type="checkbox" '+(checked[i.id]?'checked':'')+' onchange="onAuditToggle(\''+i.id+'\', this.checked)" /><span>'+esc(i.title)+'</span></label>';
-  }).join('');
-  return '<div class="card">'+renderServiceHeader('چک‌لیست حسابرسی داخلی', 'audit') +
-    '<div class="quota-pill">'+toFa(doneCount)+' از '+toFa(items.length)+' مورد انجام‌شده</div>' +
-    '<div class="block" style="margin-top:10px;">'+(rows||'<p class="muted">موردی ثبت نشده.</p>')+'</div></div>' + renderServiceBackBtn();
-}
-async function onAuditToggle(itemId, checked){
-  S.wiz.myAuditChecked[itemId] = checked; render();
-  try{ await Api.auditToggle(S.authPhone, itemId, checked); apiStatus='online'; }
-  catch(e){ apiStatus='offline'; }
-}
-// ============================================================
-// پنل مدیریت — ورود با توکن HMAC (بدون session سنتی)
-// ============================================================
-function renderAdminGate(){
-  return '<div class="card narrow"><div class="lock-wrap"><div class="lock-badge">'+ic('lock',22,'#E7C878')+'</div><h2>ورود به مدیریت</h2><p>رمز عبور را وارد کنید.</p></div>' +
-    '<label class="field"><span class="field-label">رمز عبور</span><input type="password" id="adminPassInput" placeholder="••••••" onkeydown="if(event.key===\'Enter\')tryAdminLogin();" /></label>' +
-    (S.adminLoginError?'<div class="field-error">'+esc(S.adminLoginError)+'</div>':'') +
-    '<div class="btn-row start"><button class="btn btn-gold" '+(S.adminLoading?'disabled':'')+' onclick="tryAdminLogin()">'+ic('lock',15)+'<span>'+(S.adminLoading?'در حال ورود...':'ورود')+'</span></button><button class="btn btn-ghost" onclick="go(\'\')">انصراف</button></div></div>';
-}
-
-async function tryAdminLogin(){
-  var el=document.getElementById('adminPassInput'), val=el?el.value:'';
-  S.adminLoading = true; S.adminLoginError=''; render();
-  try{
-    var res = await Api.adminLogin(val);
-    apiStatus='online';
-    S.adminToken = res.token;
-    lsSet('admin_token', res.token);
-    var data = await Api.adminGetData(res.token);
-    S.adminData = data;
-    S.adminAuthed = true; S.adminLoading=false;
-    go('admin/dashboard');
-  }catch(e){
-    apiStatus = (e && e.status) ? 'online' : 'offline';
-    S.adminLoading=false;
-    S.adminLoginError = (e && e.status===401) ? 'رمز اشتباه است.' : 'خطا در برقراری ارتباط با سرور.';
-    render();
-  }
-}
-function logoutAdmin(){ S.adminAuthed=false; S.adminToken=null; S.adminData=null; lsDel('admin_token'); go(''); }
-
-async function tryRestoreAdminSession(){
-  var tok = lsGet('admin_token');
-  if (!tok) return;
-  try{
-    var data = await Api.adminGetData(tok);
-    S.adminToken = tok; S.adminData = data; S.adminAuthed = true;
-  }catch(e){ lsDel('admin_token'); }
-}
-
-async function saveAdminData(){
-  try{
-    await Api.adminPutData(S.adminToken, S.adminData);
-    apiStatus='online';
-    return true;
-  }catch(e){
-    apiStatus='offline';
-    if (e && e.status===401) { S.adminAuthed=false; lsDel('admin_token'); go(''); }
-    return false;
-  }
-}
-async function persistAndRender(successMsg){
-  var ok = await saveAdminData();
-  if (!ok) alert('⚠️ ذخیره روی سرور ناموفق بود. اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.');
-  render();
-  return ok;
-}
-
-// ============================================================
-// چارچوب پنل
-// ============================================================
-var ADMIN_TABS = [
-  {id:'dashboard', label:'داشبورد', icon:'trend'},
-  {id:'users', label:'کاربران', icon:'users'},
-  {id:'questions', label:'درخت سوالات', icon:'branch'},
-  {id:'obligations', label:'تکالیف', icon:'doc'},
-  {id:'penalties', label:'جرایم', icon:'scale'},
-  {id:'templates', label:'لوایح', icon:'doc'},
-  {id:'plans', label:'بسته‌ها', icon:'phone'},
-  {id:'services', label:'خدمات آنلاین', icon:'branch'},
-  {id:'kb', label:'پایگاه دانش', icon:'search'},
-  {id:'audit', label:'چک‌لیست حسابرسی', icon:'check'},
-  {id:'leads', label:'درخواست‌ها', icon:'inbox'},
-  {id:'serviceRequests', label:'درخواست خدمات', icon:'inbox'},
-  {id:'licenseRequests', label:'درخواست فعال‌سازی', icon:'phone'},
-  {id:'licenses', label:'کدهای فعال‌سازی', icon:'key'},
-  {id:'settings', label:'تنظیمات', icon:'settings'},
-  {id:'backups', label:'پشتیبان‌گیری', icon:'download'},
-  {id:'guide', label:'راهنما', icon:'book'}
-];
-
-function renderAdminPanel(){
-  if (!S.adminData) return '<div class="card"><p class="muted">در حال بارگذاری اطلاعات مدیریت...</p></div>';
-  var tabsHtml='<div class="admin-tabs">'+ADMIN_TABS.map(function(t){ return '<button class="admin-tab '+(S.adminTab===t.id?'active':'')+'" onclick="go(\'admin/'+t.id+'\')">'+ic(t.icon,14)+'<span>'+t.label+'</span></button>'; }).join('')+'</div>';
-  var body='';
-  if(S.adminTab==='dashboard') body=renderDashboardAdmin();
-  else if(S.adminTab==='users') body=renderUsersAdmin();
-  else if(S.adminTab==='questions') body=renderQuestionsAdmin();
-  else if(S.adminTab==='obligations') body=renderObligationsAdmin();
-  else if(S.adminTab==='penalties') body=renderPenaltiesAdmin();
-  else if(S.adminTab==='templates') body=renderTemplatesAdmin();
-  else if(S.adminTab==='plans') body=renderPlansAdmin();
-  else if(S.adminTab==='services') body=renderServicePlansAdmin();
-  else if(S.adminTab==='kb') body=renderKbAdmin();
-  else if(S.adminTab==='audit') body=renderAuditAdmin();
-  else if(S.adminTab==='leads') body=renderLeadsAdmin();
-  else if(S.adminTab==='serviceRequests') body=renderServiceRequestsAdmin();
-  else if(S.adminTab==='licenseRequests') body=renderLicenseRequestsAdmin();
-  else if(S.adminTab==='licenses') body=renderLicensesAdmin();
-  else if(S.adminTab==='settings') body=renderSettingsAdmin();
-  else if(S.adminTab==='backups') body=renderBackupsAdmin();
-  else if(S.adminTab==='guide') body=renderGuideAdmin();
-  return tabsHtml+body;
-}
-
-function setAdminTabForm(type, mode, id, formObj){ S.formType=type; S.formMode=mode; S.formId=id; S.form=formObj; }
-function cancelForm(){ S.formType=null; S.formMode=null; S.formId=null; S.form={}; render(); }
-
-// ============================================================
-// داشبورد
-// ============================================================
-function renderDashboardAdmin(){
-  var d = S.adminData;
-  var total=d.leads.length, newCount=d.leads.filter(function(l){return (l.status||'جدید')==='جدید';}).length;
-  var usersCount=Object.keys(d.users||{}).length, licenseCount=d.licenses.length;
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>📊 داشبورد</h2></div>'+renderApiPill()+'</div>' +
-    '<div class="grid4">' +
-      '<div class="stat-box">'+ic('users',17,'var(--gold)')+'<div class="stat-value">'+toFa(usersCount)+'</div><div class="stat-label">کاربران</div></div>' +
-      '<div class="stat-box">'+ic('inbox',17,'var(--gold)')+'<div class="stat-value">'+toFa(total)+'</div><div class="stat-label">درخواست‌ها</div></div>' +
-      '<div class="stat-box">'+ic('check',17,'var(--gold)')+'<div class="stat-value">'+toFa(newCount)+'</div><div class="stat-label">جدید</div></div>' +
-      '<div class="stat-box">'+ic('key',17,'var(--gold)')+'<div class="stat-value">'+toFa(licenseCount)+'</div><div class="stat-label">لایسنس</div></div>' +
-    '</div></div>';
-}
-
-// ============================================================
-// کاربران
-// ============================================================
-function renderUsersAdmin(){
-  var d=S.adminData;
-  var keys=Object.keys(d.users||{}), limit=(d.meta.freeQueryLimit!=null)?d.meta.freeQueryLimit:3;
-  var rows=keys.map(function(k){
-    var u=d.users[k]; var used=u.queryCount||0;
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(u.name)+' — '+esc(u.phone)+'</div>' +
-      '<div class="row-sub">استعلام: '+toFa(used)+' از '+toFa(limit)+' — ثبت: '+new Date(u.createdAt).toLocaleDateString('fa-IR')+'</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="resetUserQuota(\''+k+'\')" title="بازنشانی سهمیه">'+ic('refresh',14)+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title tight"><h2>👤 کاربران ثبت‌نامی</h2></div><div class="stack">'+(rows||'<p class="muted">هنوز کاربری ثبت نشده است.</p>')+'</div></div>';
-}
-async function resetUserQuota(key){ if(!S.adminData.users[key]) return; S.adminData.users[key].queryCount=0; await persistAndRender(); }
-
-// ============================================================
-// درخت سوالات
-// ============================================================
-function renderQuestionsAdmin(){
-  var d=S.adminData;
-  var formHtml='';
-  if(S.formType==='question'){
-    var f=S.form;
-    var allQOptions = d.questions.map(function(qq){ return '<option value="'+qq.id+'">'+esc(qq.id)+' — '+esc(qq.text.slice(0,40))+'</option>'; }).join('');
-    var optsHtml=f.options.map(function(opt,idx){
-      return '<div class="opt-box"><div class="opt-row"><input type="text" value="'+esc(opt.label)+'" oninput="S.form.options['+idx+'].label=this.value" placeholder="متن گزینه (مثلاً بله)" /><button class="icon-btn danger" onclick="removeQOption('+idx+')">'+ic('x',14,'var(--red)')+'</button></div>' +
-        '<label class="field-label" style="margin-top:6px;display:block;">سوال بعدی</label>' +
-        '<select onchange="S.form.options['+idx+'].nextId=this.value||null; render();"><option value="">— پایان (برو به مرحلهٔ تکالیف) —</option>'+
-          d.questions.filter(function(qq){return qq.id!==f.id;}).map(function(qq){ return '<option value="'+qq.id+'" '+(opt.nextId===qq.id?'selected':'')+'>'+esc(qq.id)+' — '+esc(qq.text.slice(0,40))+'</option>'; }).join('') +
-        '</select>' +
-        '<div class="small-muted" style="margin-top:8px;">تکالیفی که با انتخاب این گزینه فعال می‌شود:</div>'+renderMultiCheckOpt(idx, opt.obligationIds)+'</div>';
-    }).join('');
-    formHtml='<div class="form-box"><label class="field"><span class="field-label">متن سوال</span><input type="text" value="'+esc(f.text)+'" oninput="S.form.text=this.value" /></label>' +
-      '<label class="field"><span class="field-label">شناسه (id) — یکتا، بدون فاصله</span><input type="text" value="'+esc(f.id)+'" oninput="S.form.id=this.value" '+(S.formMode==='edit'?'disabled':'')+' /></label>' +
-      '<label class="field"><span class="field-label">نمایش برای</span><div style="display:flex;gap:16px;">' +
-        '<label class="checkbox-row"><input type="checkbox" '+((f.appliesTo||[]).indexOf('حقیقی')!==-1?'checked':'')+' onchange="toggleAppliesTo(\'حقیقی\')" /><span>حقیقی</span></label>' +
-        '<label class="checkbox-row"><input type="checkbox" '+((f.appliesTo||[]).indexOf('حقوقی')!==-1?'checked':'')+' onchange="toggleAppliesTo(\'حقوقی\')" /><span>حقوقی</span></label>' +
-      '</div></label>' +
-      '<div style="font-weight:700;font-size:13.5px;margin:10px 0 8px;">گزینه‌های پاسخ</div>'+optsHtml +
-      '<button class="btn btn-ghost btn-sm" onclick="addQOption()">'+ic('plus',13)+'<span>افزودن گزینه</span></button>' +
-      '<div class="btn-row start" style="margin-top:14px;"><button class="btn btn-primary" onclick="saveQuestionForm()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
-  }
-  var rootReal = (d.meta.rootQuestion||{})['حقیقی'] || '';
-  var rootLegal = (d.meta.rootQuestion||{})['حقوقی'] || '';
-  var qOptionsReal = d.questions.filter(function(q){return (q.appliesTo||[]).indexOf('حقیقی')!==-1;}).map(function(q){ return '<option value="'+q.id+'" '+(rootReal===q.id?'selected':'')+'>'+esc(q.id)+' — '+esc(q.text.slice(0,40))+'</option>'; }).join('');
-  var qOptionsLegal = d.questions.filter(function(q){return (q.appliesTo||[]).indexOf('حقوقی')!==-1;}).map(function(q){ return '<option value="'+q.id+'" '+(rootLegal===q.id?'selected':'')+'>'+esc(q.id)+' — '+esc(q.text.slice(0,40))+'</option>'; }).join('');
-  var rootPicker = '<div class="block" style="margin-bottom:16px;"><div style="font-weight:700;font-size:13px;margin-bottom:8px;">سوال شروع درخت (اولین سوال بعد از انتخاب نوع شخصیت)</div><div class="grid2">' +
-    '<label class="field"><span class="field-label">شروع برای حقیقی</span><select onchange="setRootQuestion(\'حقیقی\', this.value)"><option value="">— هیچ (مستقیم برو به تکالیف) —</option>'+qOptionsReal+'</select></label>' +
-    '<label class="field"><span class="field-label">شروع برای حقوقی</span><select onchange="setRootQuestion(\'حقوقی\', this.value)"><option value="">— هیچ (مستقیم برو به تکالیف) —</option>'+qOptionsLegal+'</select></label>' +
-  '</div></div>';
-  var list=d.questions.map(function(q){
-    var flow = q.options.map(function(o){ return esc(o.label)+' ← '+(o.nextId?('برو به «'+esc(o.nextId)+'»'):'پایان (تکالیف)')+(o.obligationIds&&o.obligationIds.length?(' + '+toFa(o.obligationIds.length)+' تکلیف'):''); }).join(' | ');
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(q.id)+' — '+esc(q.text)+'</div><div class="row-sub">'+esc((q.appliesTo||[]).join('، '))+'</div><div class="tree-flow">'+flow+'</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="openEditQuestion(\''+q.id+'\')">'+ic('edit',14)+'</button><button class="icon-btn danger" onclick="deleteQuestion(\''+q.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>🌳 درخت سوالات</h2></div>'+(S.formType==='question'?'':'<button class="btn btn-primary btn-sm" onclick="openAddQuestion()">'+ic('plus',13)+'<span>سوال جدید</span></button>')+'</div>' +
-    (S.formType==='question'?'':rootPicker) + formHtml + '<div class="stack">'+(list||'<p class="muted">سوالی ثبت نشده است.</p>')+'</div></div>';
-}
-function renderMultiCheckOpt(idx, selectedIds){
-  return '<div class="multi-check">'+S.adminData.obligations.map(function(item){
-    var checked=(selectedIds||[]).indexOf(item.id)!==-1;
-    return '<label class="checkbox-row"><input type="checkbox" '+(checked?'checked':'')+' onchange="toggleQOptionObligation('+idx+',\''+item.id+'\')" /><span>'+esc(item.title)+'</span></label>';
-  }).join('')+'</div>';
-}
-function toggleQOptionObligation(idx, obId){ var arr=S.form.options[idx].obligationIds||[]; var i=arr.indexOf(obId); if(i===-1) arr=arr.concat([obId]); else arr=arr.filter(function(x){return x!==obId;}); S.form.options[idx].obligationIds=arr; render(); }
-function addQOption(){ S.form.options.push({id:genId('opt'), label:'', nextId:null, obligationIds:[]}); render(); }
-function removeQOption(idx){ S.form.options=S.form.options.filter(function(_,i){return i!==idx;}); render(); }
-function openAddQuestion(){ S.formType='question'; S.formMode='add'; S.formId=null; S.form={id:genId('q'), text:'', appliesTo:['حقیقی','حقوقی'], options:[{id:genId('opt'), label:'بله', nextId:null, obligationIds:[]},{id:genId('opt'), label:'خیر', nextId:null, obligationIds:[]}]}; render(); window.scrollTo(0,0); }
-function openEditQuestion(id){ var q=S.adminData.questions.find(function(x){return x.id===id;}); if(!q) return; S.formType='question'; S.formMode='edit'; S.formId=id; S.form=clone(q); render(); window.scrollTo(0,0); }
-async function deleteQuestion(id){
-  if(!confirm('این سوال حذف شود؟ گزینه‌های سایر سوالات که به این سوال اشاره می‌کنند باید دستی اصلاح شوند.')) return;
-  S.adminData.questions = S.adminData.questions.filter(function(x){return x.id!==id;});
-  Object.keys(S.adminData.meta.rootQuestion||{}).forEach(function(k){ if(S.adminData.meta.rootQuestion[k]===id) S.adminData.meta.rootQuestion[k]=''; });
-  await persistAndRender();
-}
-async function saveQuestionForm(){
-  if(!S.form.text.trim()){ alert('متن سوال را وارد کنید.'); return; }
-  if(!S.form.id.trim()){ alert('شناسه را وارد کنید.'); return; }
-  var exists = S.adminData.questions.some(function(x){return x.id===S.form.id && S.formMode==='add';});
-  if(exists){ alert('این شناسه تکراری است.'); return; }
-  if(S.formMode==='add'){ S.adminData.questions.push(S.form); }
-  else { S.adminData.questions = S.adminData.questions.map(function(x){ return x.id===S.formId?S.form:x; }); }
-  cancelForm();
-  await persistAndRender();
-}
-async function setRootQuestion(personType, qId){
-  S.adminData.meta.rootQuestion = S.adminData.meta.rootQuestion || {};
-  S.adminData.meta.rootQuestion[personType] = qId || '';
-  await persistAndRender();
-}
-
-// ============================================================
-// تکالیف
-// ============================================================
-function renderObligationsAdmin(){
-  var d=S.adminData;
-  var formHtml='';
-  if(S.formType==='obligation'){
-    var f=S.form;
-    formHtml='<div class="form-box"><label class="field"><span class="field-label">عنوان</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
-      '<label class="field"><span class="field-label">توضیح</span><textarea rows="3" oninput="S.form.description=this.value">'+esc(f.description)+'</textarea></label>' +
-      '<label class="field"><span class="field-label">موعد</span><input type="text" value="'+esc(f.deadline)+'" oninput="S.form.deadline=this.value" /></label>' +
-      '<label class="field"><span class="field-label">یادآوری چند روز پس از شناسایی این تکلیف ارسال شود؟</span><input type="number" value="'+esc(f.reminderAfterDays!=null?f.reminderAfterDays:20)+'" oninput="S.form.reminderAfterDays=this.value" /></label>' +
-      '<label class="checkbox-row"><input type="checkbox" '+(f.fixed?'checked':'')+' onchange="S.form.fixed=this.checked; render();" /><span>ثابت (بدون نیاز به سوال، بلافاصله بعد از انتخاب نوع شخصیت نشان داده شود)</span></label>' +
-      '<label class="field"><span class="field-label">نمایش برای</span><div style="display:flex;gap:16px;">' +
-        '<label class="checkbox-row"><input type="checkbox" '+((f.appliesTo||[]).indexOf('حقیقی')!==-1?'checked':'')+' onchange="toggleAppliesTo(\'حقیقی\')" /><span>حقیقی</span></label>' +
-        '<label class="checkbox-row"><input type="checkbox" '+((f.appliesTo||[]).indexOf('حقوقی')!==-1?'checked':'')+' onchange="toggleAppliesTo(\'حقوقی\')" /><span>حقوقی</span></label>' +
-      '</div></label>' +
-      '<label class="field"><span class="field-label">جرایم مرتبط</span>'+renderMultiCheck(d.penalties, f.penaltyIds, 'penaltyIds')+'</label>' +
-      '<div class="btn-row start"><button class="btn btn-primary" onclick="saveForm()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
-  }
-  var list=d.obligations.map(function(o){
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+(o.fixed?'⭐ ':'')+esc(o.title)+'</div><div class="row-sub">'+esc((o.appliesTo||[]).join('، '))+' — '+esc(o.deadline)+'</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="openEditForm(\'obligation\',\''+o.id+'\')">'+ic('edit',14)+'</button><button class="icon-btn danger" onclick="deleteItem(\'obligation\',\''+o.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>📋 تکالیف</h2></div>'+(S.formType==='obligation'?'':'<button class="btn btn-primary btn-sm" onclick="openAddForm(\'obligation\')">'+ic('plus',13)+'<span>جدید</span></button>')+'</div>'+formHtml+'<div class="stack">'+(list||'<p class="muted">تکلیفی ثبت نشده است.</p>')+'</div></div>';
-}
-
-// ============================================================
-// جرایم
-// ============================================================
-function renderPenaltiesAdmin(){
-  var d=S.adminData;
-  var formHtml='';
-  if(S.formType==='penalty'){
-    var f=S.form;
-    formHtml='<div class="form-box"><label class="field"><span class="field-label">عنوان</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
-      '<label class="field"><span class="field-label">توضیح</span><textarea rows="3" oninput="S.form.description=this.value">'+esc(f.description)+'</textarea></label>' +
-      '<label class="field"><span class="field-label">ماده قانونی</span><input type="text" value="'+esc(f.legalArticle||'')+'" oninput="S.form.legalArticle=this.value" /></label>' +
-      '<label class="field"><span class="field-label">نوع محاسبه</span><select onchange="S.form.calcType=this.value; render();">' +
-        '<option value="fixed" '+(f.calcType==='fixed'?'selected':'')+'>مبلغ ثابت</option>' +
-        '<option value="percent" '+(f.calcType==='percent'?'selected':'')+'>درصدی</option>' +
-        '<option value="permonth" '+(f.calcType==='permonth'?'selected':'')+'>مبلغ هر ماه</option>' +
-        '<option value="permonth_percent" '+(f.calcType==='permonth_percent'?'selected':'')+'>درصدی هر ماه</option>' +
-      '</select></label>' +
-      '<label class="field"><span class="field-label">'+(f.calcType==='fixed'?'مبلغ':(f.calcType==='percent'||f.calcType==='permonth_percent'?'درصد':'مبلغ هر ماه'))+'</span><input type="number" value="'+esc(f.value)+'" oninput="S.form.value=this.value" /></label>' +
-      '<label class="field"><span class="field-label">بخشودگی</span><div style="display:flex;align-items:center;gap:16px;">' +
-        '<label class="checkbox-row"><input type="checkbox" '+(f.amnestyEligible?'checked':'')+' onchange="S.form.amnestyEligible=this.checked; render();" /><span>بله</span></label>' +
-        (f.amnestyEligible?'<input style="max-width:160px;" type="number" value="'+esc(f.amnestyPercent)+'" oninput="S.form.amnestyPercent=this.value" placeholder="درصد" />':'') +
-      '</div></label>' +
-      (f.amnestyEligible?'<label class="field"><span class="field-label">شرط بخشودگی</span><input type="text" value="'+esc(f.amnestyCondition||'')+'" oninput="S.form.amnestyCondition=this.value" /></label>':'') +
-      '<label class="field"><span class="field-label">تقسیط</span><div style="display:flex;align-items:center;gap:16px;">' +
-        '<label class="checkbox-row"><input type="checkbox" '+(f.installmentEligible?'checked':'')+' onchange="S.form.installmentEligible=this.checked; render();" /><span>بله</span></label>' +
-        (f.installmentEligible?'<input style="max-width:160px;" type="number" value="'+esc(f.maxInstallments)+'" oninput="S.form.maxInstallments=this.value" placeholder="تعداد" />':'') +
-      '</div></label>' +
-      '<div class="btn-row start"><button class="btn btn-primary" onclick="saveForm()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
-  }
-  var list=d.penalties.map(function(p){
-    var sub=calcTypeLabel(p.calcType)+' — '+(p.calcType==='percent'||p.calcType==='permonth_percent'?toFa(p.value)+'٪':toman(p.value))+' — بخشودگی: '+(p.amnestyEligible?toFa(p.amnestyPercent)+'٪':'ندارد')+' — اقساط: '+(p.installmentEligible?('تا '+toFa(p.maxInstallments)+' قسط'):'ندارد');
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(p.title)+'</div><div class="row-sub">'+sub+'</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="openEditForm(\'penalty\',\''+p.id+'\')">'+ic('edit',14)+'</button><button class="icon-btn danger" onclick="deleteItem(\'penalty\',\''+p.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>⚖️ جرایم</h2></div>'+(S.formType==='penalty'?'':'<button class="btn btn-primary btn-sm" onclick="openAddForm(\'penalty\')">'+ic('plus',13)+'<span>جدید</span></button>')+'</div>'+formHtml+'<div class="stack">'+(list||'<p class="muted">جریمه‌ای ثبت نشده است.</p>')+'</div></div>';
-}
-
-// ============================================================
-// قالب‌های لایحه
-// ============================================================
-function renderTemplatesAdmin(){
-  var d=S.adminData;
-  var formHtml='';
-  if(S.formType==='template'){
-    var f=S.form;
-    formHtml='<div class="form-box"><label class="field"><span class="field-label">عنوان</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
-      '<label class="field"><span class="field-label">متن</span><textarea rows="10" oninput="S.form.body=this.value">'+esc(f.body)+'</textarea></label>' +
-      '<div class="btn-row start"><button class="btn btn-primary" onclick="saveForm()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
-  }
-  var list=d.templates.map(function(t){
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(t.title)+'</div><div class="row-sub">'+esc(t.body.slice(0,80))+'...</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="openEditForm(\'template\',\''+t.id+'\')">'+ic('edit',14)+'</button><button class="icon-btn danger" onclick="deleteItem(\'template\',\''+t.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>📄 قالب‌های لایحه</h2></div>'+(S.formType==='template'?'':'<button class="btn btn-primary btn-sm" onclick="openAddForm(\'template\')">'+ic('plus',13)+'<span>جدید</span></button>')+'</div>' +
-    '<div class="block small-muted">متغیرها: <span class="tpl-var">{{taxpayerType}}</span> <span class="tpl-var">{{penaltiesList}}</span> <span class="tpl-var">{{totalRaw}}</span> <span class="tpl-var">{{totalAmnesty}}</span> <span class="tpl-var">{{date}}</span></div>' +
-    formHtml+'<div class="stack">'+(list||'<p class="muted">قالبی ثبت نشده است.</p>')+'</div></div>';
-}
-
-// ============================================================
-// بسته‌های مشاوره
-// ============================================================
-function renderPlansAdmin(){
-  var d=S.adminData;
-  var formHtml='';
-  if(S.formType==='plan'){
-    var f=S.form;
-    formHtml='<div class="form-box"><label class="field"><span class="field-label">عنوان</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
-      '<label class="field"><span class="field-label">مدت</span><input type="text" value="'+esc(f.duration)+'" oninput="S.form.duration=this.value" /></label>' +
-      '<label class="field"><span class="field-label">قیمت (تومان)</span><input type="number" value="'+esc(f.price)+'" oninput="S.form.price=this.value" /></label>' +
-      '<label class="field"><span class="field-label">توضیح</span><textarea rows="3" oninput="S.form.desc=this.value">'+esc(f.desc)+'</textarea></label>' +
-      '<div class="btn-row start"><button class="btn btn-primary" onclick="saveForm()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
-  }
-  var list=d.plans.map(function(p){
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(p.title)+'</div><div class="row-sub">'+esc(p.duration)+' — '+(p.price===0?'رایگان':toman(p.price))+'</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="openEditForm(\'plan\',\''+p.id+'\')">'+ic('edit',14)+'</button><button class="icon-btn danger" onclick="deleteItem(\'plan\',\''+p.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>📦 بسته‌های مشاوره</h2></div>'+(S.formType==='plan'?'':'<button class="btn btn-primary btn-sm" onclick="openAddForm(\'plan\')">'+ic('plus',13)+'<span>جدید</span></button>')+'</div>'+formHtml+'<div class="stack">'+(list||'<p class="muted">بسته‌ای ثبت نشده است.</p>')+'</div></div>';
-}
-
-// ============================================================
-// خدمات آنلاین — قیمت‌گذاری (ویرایش‌فقط، بدون افزودن/حذف چون هر سرویس ثابت در کد است)
-// ============================================================
-function renderServicePlansAdmin(){
-  var d=S.adminData;
-  d.servicePlans = d.servicePlans || [];
-  var formHtml='';
-  if(S.formType==='servicePlanEdit'){
-    var f=S.form;
-    formHtml='<div class="form-box"><label class="field"><span class="field-label">عنوان</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
-      '<label class="field"><span class="field-label">قیمت (تومان — صفر یعنی رایگان)</span><input type="number" value="'+esc(f.price)+'" oninput="S.form.price=this.value" /></label>' +
-      '<label class="field"><span class="field-label">توضیح</span><textarea rows="2" oninput="S.form.desc=this.value">'+esc(f.desc)+'</textarea></label>' +
-      '<div class="btn-row start"><button class="btn btn-primary" onclick="saveServicePlan()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
-  }
-  var list=d.servicePlans.map(function(p){
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(p.title)+'</div><div class="row-sub">'+(p.price===0?'رایگان':toman(p.price))+' — '+esc(p.desc)+'</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="openEditServicePlan(\''+p.id+'\')">'+ic('edit',14)+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title tight"><h2>🧩 قیمت‌گذاری خدمات آنلاین</h2></div><div class="small-muted" style="margin-bottom:12px;">این پنج خدمت پس از دریافت لایسنس در دسترس کاربران قرار می‌گیرد؛ قیمت هرکدام را اینجا تنظیم کنید (صفر = رایگان).</div>'+formHtml+'<div class="stack">'+(list||'<p class="muted">سرویسی تعریف نشده است.</p>')+'</div></div>';
-}
-function openEditServicePlan(id){ var item=S.adminData.servicePlans.find(function(x){return x.id===id;}); if(!item) return; S.formType='servicePlanEdit'; S.formMode='edit'; S.formId=id; S.form=clone(item); render(); window.scrollTo(0,0); }
-async function saveServicePlan(){
-  if(!S.form.title.trim()){ alert('عنوان را وارد کنید.'); return; }
-  S.form.price = Number(S.form.price)||0;
-  S.adminData.servicePlans = S.adminData.servicePlans.map(function(x){ return x.id===S.formId?S.form:x; });
-  cancelForm();
-  await persistAndRender();
-}
-
-// ============================================================
-// پایگاه دانش (منابع چت — بدون هوش مصنوعی، فقط جست‌وجوی کلیدواژه‌ای)
-// ============================================================
-function renderKbAdmin(){
-  var d=S.adminData; d.knowledgeBase = d.knowledgeBase || [];
-  var formHtml='';
-  if(S.formType==='kbItem'){
-    var f=S.form; f.sourceType = f.sourceType || 'text';
-    var typeOptions = [
-      {v:'text', l:'متن دستی'}, {v:'pdf', l:'فایل PDF'}, {v:'image', l:'عکس (OCR)'}, {v:'excel', l:'فایل اکسل'}, {v:'link', l:'لینک وب'}
-    ].map(function(o){ return '<option value="'+o.v+'" '+(f.sourceType===o.v?'selected':'')+'>'+o.l+'</option>'; }).join('');
-    var extractorHtml = '';
-    if (f.sourceType==='pdf') extractorHtml = '<label class="field"><span class="field-label">فایل PDF</span><input type="file" accept="application/pdf" onchange="onKbExtractFile(\'pdf\', this)" /></label>';
-    else if (f.sourceType==='image') extractorHtml = '<label class="field"><span class="field-label">فایل عکس</span><input type="file" accept="image/*" onchange="onKbExtractFile(\'image\', this)" /></label><div class="small-muted">استخراج متن از عکس (OCR) ممکن است چند ثانیه طول بکشد.</div>';
-    else if (f.sourceType==='excel') extractorHtml = '<label class="field"><span class="field-label">فایل اکسل</span><input type="file" accept=".xlsx,.xls,.csv" onchange="onKbExtractFile(\'excel\', this)" /></label>';
-    else if (f.sourceType==='link') extractorHtml = '<label class="field"><span class="field-label">آدرس لینک</span><input type="text" id="kbLinkUrlInput" value="'+esc(f.sourceUrl||'')+'" placeholder="https://example.com/article" /></label><button class="btn btn-ghost btn-sm" onclick="onKbFetchLink()">'+ic('download',13)+'<span>دریافت متن از لینک</span></button>';
-    formHtml='<div class="form-box"><label class="field"><span class="field-label">عنوان</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
-      '<label class="field"><span class="field-label">کلیدواژه‌ها (با کاما جدا کنید)</span><input type="text" value="'+esc((f.keywords||[]).join('، '))+'" oninput="S.form.keywords=this.value.split(/[,،]/).map(function(s){return s.trim();}).filter(Boolean)" /></label>' +
-      '<label class="field"><span class="field-label">نوع منبع</span><select onchange="onKbSourceTypeChange(this.value)">'+typeOptions+'</select></label>' +
-      extractorHtml +
-      (S.kbExtracting?'<div class="small-muted" style="margin:8px 0;color:var(--gold);">⏳ در حال استخراج متن...</div>':'') +
-      (S.kbExtractError?'<div class="field-error" style="margin:8px 0;">'+esc(S.kbExtractError)+'</div>':'') +
-      '<label class="field" style="margin-top:8px;"><span class="field-label">متن نهایی (پس از استخراج قابل ویرایش است — فقط همین متن مبنای پاسخ‌گویی قرار می‌گیرد)</span><textarea rows="7" oninput="S.form.content=this.value">'+esc(f.content)+'</textarea></label>' +
-      (f.content?('<div class="small-muted">طول متن: '+toFa(f.content.length)+' نویسه</div>'):'') +
-      '<div class="btn-row start"><button class="btn btn-primary" onclick="saveForm()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
-  }
-  var typeLabels = {text:'متن', pdf:'PDF', image:'عکس', excel:'اکسل', link:'لینک'};
-  var list=d.knowledgeBase.map(function(k){
-    var typeBadge = '<span class="badge badge-ink">'+(typeLabels[k.sourceType]||'متن')+'</span>';
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(k.title)+' '+typeBadge+'</div><div class="row-sub">'+esc((k.keywords||[]).join('، '))+' — '+toFa((k.content||'').length)+' نویسه</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="openEditForm(\'kbItem\',\''+k.id+'\')">'+ic('edit',14)+'</button><button class="icon-btn danger" onclick="deleteItem(\'kbItem\',\''+k.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>📚 پایگاه دانش (منابع چت)</h2></div>'+(S.formType==='kbItem'?'':'<button class="btn btn-primary btn-sm" onclick="openAddForm(\'kbItem\')">'+ic('plus',13)+'<span>منبع جدید</span></button>')+'</div>' +
-    '<div class="alert-box info" style="margin-bottom:12px;">'+ic('info',14)+'<span>پاسخ چت فقط از همین متن‌ها ساخته می‌شود؛ نه حدس، نه دانش عمومی. PDF/عکس/اکسل/لینک را آپلود کنید تا متنشان استخراج و اینجا نمایش داده شود، سپس در صورت نیاز ویرایش و ذخیره کنید.</span></div>' +
-    formHtml+'<div class="stack">'+(list||'<p class="muted">منبعی ثبت نشده است.</p>')+'</div></div>';
-}
-function onKbSourceTypeChange(v){ S.form.sourceType=v; S.kbExtractError=''; render(); }
-async function onKbExtractFile(kind, inputEl){
-  var file = inputEl.files && inputEl.files[0];
-  if(!file) return;
-  S.form.sourceName = file.name;
-  S.kbExtracting = true; S.kbExtractError=''; render();
-  try{
-    var text = '';
-    if(kind==='pdf') text = await extractPdfText(file);
-    else if(kind==='excel') text = await extractExcelText(file);
-    else if(kind==='image') text = await extractImageText(file);
-    if(!text) throw new Error('متنی از فایل استخراج نشد.');
-    S.form.content = text.slice(0, 30000);
-  }catch(e){
-    S.kbExtractError = 'استخراج متن ناموفق بود: '+((e&&e.message)||e);
-  }
-  S.kbExtracting=false; render();
-}
-async function onKbFetchLink(){
-  var el = document.getElementById('kbLinkUrlInput');
-  var url = el?el.value.trim():'';
-  if(!url) return;
-  S.form.sourceUrl = url;
-  S.kbExtracting = true; S.kbExtractError=''; render();
-  try{
-    var r = await Api.adminFetchLink(S.adminToken, url);
-    S.form.content = (r.text||'').slice(0, 30000);
-    if(!S.form.content) throw new Error('متنی از لینک استخراج نشد.');
-  }catch(e){ S.kbExtractError = 'دریافت متن از لینک ناموفق بود.'; }
-  S.kbExtracting=false; render();
-}
-
-// ---- کتابخانه‌های استخراج متن — فقط هنگام نیاز، از CDN بارگذاری می‌شوند ----
-var __loadedScripts = {};
-function loadScript(src){
-  if (__loadedScripts[src]) return __loadedScripts[src];
-  __loadedScripts[src] = new Promise(function(resolve, reject){
-    var s = document.createElement('script');
-    s.src = src; s.onload = function(){ resolve(); }; s.onerror = function(){ reject(new Error('بارگذاری کتابخانه ناموفق بود.')); };
-    document.head.appendChild(s);
-  });
-  return __loadedScripts[src];
-}
-async function extractPdfText(file){
-  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js');
-  window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-  var buf = await file.arrayBuffer();
-  var pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
-  var text = '';
-  for (var i=1; i<=pdf.numPages; i++){
-    var page = await pdf.getPage(i);
-    var content = await page.getTextContent();
-    text += content.items.map(function(it){ return it.str; }).join(' ') + '\n\n';
-  }
-  return text.trim();
-}
-async function extractExcelText(file){
-  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
-  var buf = await file.arrayBuffer();
-  var wb = window.XLSX.read(buf, { type:'array' });
-  var out = [];
-  wb.SheetNames.forEach(function(name){
-    out.push('--- '+name+' ---\n'+window.XLSX.utils.sheet_to_csv(wb.Sheets[name]));
-  });
-  return out.join('\n\n').trim();
-}
-async function extractImageText(file){
-  await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
-  var result = await window.Tesseract.recognize(file, 'fas+eng');
-  return ((result && result.data && result.data.text) || '').trim();
-}
-
-// ============================================================
-// چک‌لیست حسابرسی داخلی
-// ============================================================
-function renderAuditAdmin(){
-  var d=S.adminData; d.auditChecklist = d.auditChecklist || [];
-  var formHtml='';
-  if(S.formType==='auditItem'){
-    var f=S.form;
-    formHtml='<div class="form-box"><label class="field"><span class="field-label">متن مورد چک‌لیست</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
-      '<div class="btn-row start"><button class="btn btn-primary" onclick="saveForm()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
-  }
-  var list=d.auditChecklist.map(function(a){
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(a.title)+'</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="openEditForm(\'auditItem\',\''+a.id+'\')">'+ic('edit',14)+'</button><button class="icon-btn danger" onclick="deleteItem(\'auditItem\',\''+a.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>✅ چک‌لیست حسابرسی داخلی</h2></div>'+(S.formType==='auditItem'?'':'<button class="btn btn-primary btn-sm" onclick="openAddForm(\'auditItem\')">'+ic('plus',13)+'<span>مورد جدید</span></button>')+'</div>'+formHtml+'<div class="stack">'+(list||'<p class="muted">موردی ثبت نشده است.</p>')+'</div></div>';
-}
-
-// ============================================================
-// درخواست‌های خدمات آنلاین (مشاورهٔ فایل، بررسی پرونده)
-// ============================================================
-function renderServiceRequestsAdmin(){
-  var d=S.adminData; d.serviceRequests = d.serviceRequests || [];
-  var q=(S.serviceReqQuery||'').trim();
-  var filtered = d.serviceRequests.filter(function(r){ return !q || (r.name&&r.name.indexOf(q)!==-1) || (r.phone&&r.phone.indexOf(q)!==-1); });
-  var svcLabels = {consultFile:'مشاورهٔ آنلاین با مدرک', caseCheck:'بررسی پروندهٔ مالیاتی'};
-  var list = filtered.slice().reverse().map(function(r){
-    var sub = 'نوع: '+esc(svcLabels[r.serviceKey]||r.serviceKey)+(r.caseNumber?(' — شمارهٔ پرونده: '+esc(r.caseNumber)):'')+(r.note?(' — '+esc(r.note)):'')+' — '+new Date(r.createdAt).toLocaleString('fa-IR');
-    var fileBtn = r.fileId ? '<button class="btn btn-ghost btn-sm" onclick="downloadServiceFile(\''+r.fileId+'\',\''+esc(r.fileName||'file')+'\')">'+ic('download',13)+'<span>دانلود مدرک</span></button>' : '';
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(r.name)+' — '+esc(r.phone)+'</div><div class="row-sub">'+sub+'</div>'+(fileBtn?'<div style="margin-top:8px;">'+fileBtn+'</div>':'')+'</div>' +
-      '<div class="row-actions"><button class="icon-btn danger" onclick="deleteServiceRequest(\''+r.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title tight"><h2>🗂 درخواست‌های خدمات آنلاین</h2></div>' +
-    '<div class="search-wrap" style="margin:12px 0 16px;"><span class="search-icon">'+ic('search',15)+'</span><input type="text" value="'+esc(S.serviceReqQuery)+'" oninput="S.serviceReqQuery=this.value; render();" placeholder="جستجو..." /></div>' +
-    '<div class="stack">'+(filtered.length===0?'<p class="muted">درخواستی ثبت نشده است.</p>':list)+'</div></div>';
-}
-async function deleteServiceRequest(id){ if(!confirm('حذف شود؟')) return; S.adminData.serviceRequests = S.adminData.serviceRequests.filter(function(r){return r.id!==id;}); await persistAndRender(); }
-async function downloadServiceFile(fileId, filename){
-  try{
-    var f = await Api.adminGetFile(S.adminToken, fileId);
-    var byteChars = atob(f.dataBase64);
-    var bytes = new Uint8Array(byteChars.length);
-    for (var i=0;i<byteChars.length;i++) bytes[i]=byteChars.charCodeAt(i);
-    var blob = new Blob([bytes], {type: f.mimeType||'application/octet-stream'});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a'); a.href=url; a.download = f.filename || filename || 'file'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  }catch(e){ alert('دانلود فایل ناموفق بود.'); }
-}
-
-// ============================================================
-// درخواست‌های تماس برای دریافت لایسنس
-// ============================================================
-function renderLicenseRequestsAdmin(){
-  var d=S.adminData; d.licenseRequests = d.licenseRequests || [];
-  var ctxLabels = {quota:'سقف اجرای رایگان', 'penalties-gate':'گیت مشاهدهٔ جرایم', chat:'سقف سؤالات چت'};
-  var list = d.licenseRequests.slice().reverse().map(function(r){
-    var ctx = ctxLabels[r.context] || (r.context && r.context.indexOf('service-')===0 ? 'خدمت آنلاین: '+r.context.replace('service-','') : r.context) || '-';
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(r.name)+' — '+esc(r.phone)+'</div>' +
-      '<div class="row-sub">درخواست از: '+esc(ctx)+' — '+new Date(r.createdAt).toLocaleString('fa-IR')+'</div></div>' +
-      '<div class="row-actions"><button class="icon-btn danger" onclick="deleteLicenseRequest(\''+r.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title tight"><h2>📞 درخواست‌های تماس برای لایسنس</h2></div>' +
-    '<div class="small-muted" style="margin-bottom:12px;">وقتی کاربری به سقف رایگان می‌رسد و دکمهٔ «درخواست تماس» را می‌زند، اینجا و در ایمیل شما ثبت می‌شود.</div>' +
-    '<div class="stack">'+(list||'<p class="muted">درخواستی ثبت نشده است.</p>')+'</div></div>';
-}
-async function deleteLicenseRequest(id){ if(!confirm('حذف شود؟')) return; S.adminData.licenseRequests = S.adminData.licenseRequests.filter(function(r){return r.id!==id;}); await persistAndRender(); }
-
-// ============================================================
-// درخواست‌ها (لیدها)
-// ============================================================
-function renderLeadsAdmin(){
-  var d=S.adminData;
-  var q=(S.leadsQuery||'').trim();
-  var filtered=d.leads.filter(function(l){ return !q || (l.name&&l.name.indexOf(q)!==-1) || (l.phone&&l.phone.indexOf(q)!==-1); });
-  var list=filtered.slice().reverse().map(function(l){
-    var statusOptions=LEAD_STATUSES.map(function(s){ return '<option value="'+s+'" '+((l.status||'جدید')===s?'selected':'')+'>'+s+'</option>'; }).join('');
-    var extra='<div style="margin-top:8px;max-width:220px;"><select onchange="updateLeadStatus(\''+l.id+'\', this.value)">'+statusOptions+'</select></div>';
-    var sub='نوع: '+esc(l.personType||'—')+' — بسته: '+esc(l.planTitle||'—')+' — جرایم: '+toman(l.totalRaw)+(l.note?(' — '+esc(l.note)):'')+' — '+new Date(l.createdAt).toLocaleString('fa-IR');
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(l.name)+' — '+esc(l.phone)+'</div><div class="row-sub">'+sub+'</div>'+extra+'</div>' +
-      '<div class="row-actions"><button class="icon-btn danger" onclick="deleteLead(\''+l.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>📨 درخواست‌ها</h2></div><button class="btn btn-ghost btn-sm" '+(d.leads.length===0?'disabled':'')+' onclick="exportLeadsCSV()">'+ic('download',13)+'<span>CSV</span></button></div>' +
-    '<div class="search-wrap" style="margin-bottom:16px;"><span class="search-icon">'+ic('search',15)+'</span><input type="text" value="'+esc(S.leadsQuery)+'" oninput="onLeadsQueryInput(this.value)" placeholder="جستجو..." /></div>' +
-    '<div class="stack">'+(filtered.length===0?'<p class="muted">درخواستی ثبت نشده است.</p>':list)+'</div></div>';
-}
-async function updateLeadStatus(id, status){ S.adminData.leads = S.adminData.leads.map(function(l){ return l.id===id?Object.assign({},l,{status:status}):l; }); await persistAndRender(); }
-async function deleteLead(id){ if(!confirm('حذف شود؟')) return; S.adminData.leads = S.adminData.leads.filter(function(l){return l.id!==id;}); await persistAndRender(); }
-function onLeadsQueryInput(v){ S.leadsQuery=v; render(); }
-function exportLeadsCSV(){
-  var header=['نام','شماره','نوع مؤدی','بسته','جرایم','وضعیت','توضیحات','تاریخ'];
-  var rows=S.adminData.leads.map(function(l){ return [l.name,l.phone,l.personType||'',l.planTitle||'',l.totalRaw||0,l.status||'جدید',(l.note||'').replace(/\n/g,' '),l.createdAt]; });
-  var csv=[header].concat(rows).map(function(r){ return r.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(','); }).join('\r\n');
-  var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}); var url=URL.createObjectURL(blob);
-  var a=document.createElement('a'); a.href=url; a.download='leads.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-}
-
-// ============================================================
-// لایسنس‌ها
-// ============================================================
-var SCOPE_OPTIONS = [
-  {key:'wizard', label:'محاسبهٔ جرایم و لایحه'},
-  {key:'chat', label:'چت با منابع'},
-  {key:'upload', label:'مشاورهٔ بررسی مدارک'},
-  {key:'case', label:'وضعیت پرونده'},
-  {key:'reminder', label:'یادآور مواعد'},
-  {key:'audit', label:'چک‌لیست حسابرسی'}
-];
-function scopeLabel(scope){
-  if (!scope || !scope.length || scope.indexOf('all')!==-1) return 'دسترسی کامل';
-  return scope.map(function(k){ var f=SCOPE_OPTIONS.find(function(s){return s.key===k;}); return f?f.label:k; }).join('، ');
-}
-function renderLicensesAdmin(){
-  var d=S.adminData;
-  var now=Date.now();
-  var licenseRows=d.licenses.map(function(l){
-    var expired=l.expiresAt && new Date(l.expiresAt).getTime()<now;
-    var statusBadge=expired?'<span class="badge badge-red">منقضی</span>':'<span class="badge badge-green">فعال</span>';
-    var durLabel=(LICENSE_DURATIONS.find(function(dd){return dd.months===l.durationMonths;})||{}).label||(toFa(l.durationMonths||0)+' ماهه');
-    var boundLabel = l.boundPhone ? (' — فعال‌شده توسط '+esc(l.boundPhone)) : ' — هنوز فعال نشده';
-    var sub=(l.note?esc(l.note)+' — ':'')+durLabel+' — '+scopeLabel(l.scope)+boundLabel+' — ثبت: '+new Date(l.createdAt).toLocaleDateString('fa-IR')+(l.expiresAt?(' — انقضا: '+new Date(l.expiresAt).toLocaleDateString('fa-IR')):'')+' '+statusBadge;
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(l.code)+'</div><div class="row-sub">'+sub+'</div></div>' +
-      '<div class="row-actions">'+(l.boundPhone?'<button class="icon-btn" title="آزادسازی برای استفادهٔ دوباره" onclick="unbindLicense(\''+l.code+'\')">'+ic('logout',14)+'</button>':'')+'<button class="icon-btn danger" onclick="deleteLicense(\''+l.code+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  var logsRows=d.licenseLogs.slice().reverse().slice(0,25).map(function(l){ return '<div class="small-muted" style="padding:4px 0;border-bottom:1px solid var(--line);">کد <b>'+esc(l.code)+'</b>'+(l.phone?(' — '+esc(l.phone)):'')+' — '+new Date(l.at).toLocaleString('fa-IR')+'</div>'; }).join('');
-  var durationRadios=LICENSE_DURATIONS.map(function(dd){ return '<label class="radio-row"><input type="radio" name="licDuration" '+(S.newLicenseDuration===dd.months?'checked':'')+' onchange="setNewLicenseDuration('+dd.months+')" /><span>'+dd.label+'</span></label>'; }).join('');
-  var scopeChecks = SCOPE_OPTIONS.map(function(s){
-    return '<label class="checkbox-row"><input type="checkbox" '+((S.newLicenseScope||[]).indexOf(s.key)!==-1?'checked':'')+' onchange="toggleNewLicenseScope(\''+s.key+'\', this.checked)" /><span>'+s.label+'</span></label>';
-  }).join('');
-  return '<div class="card"><div class="section-title tight"><h2>🔑 کدهای فعال‌سازی</h2></div><p class="muted" style="margin:8px 0 16px;">ساخت کدهای ۳، ۶ و ۱۲ ماهه — هر کد فقط برای اولین شماره‌ای که آن را فعال کند کار می‌کند.</p>' +
-    '<div class="block" style="margin-bottom:18px;"><label class="checkbox-row"><input type="checkbox" '+(d.meta.defaultLicenseEnabled!==false?'checked':'')+' onchange="toggleDefaultLicense(this.checked)" /><span style="font-weight:700;">فعال‌سازی پیش‌فرض</span></label>' +
-    '<div class="grid2" style="margin-top:10px;"><label class="field"><span class="field-label">کد پیش‌فرض</span><input type="text" id="defaultLicenseCodeInput" value="'+esc(d.meta.defaultLicenseCode||'123')+'" /></label><div style="align-self:end;"><button class="btn btn-ghost" onclick="saveDefaultLicenseCode()">ذخیره</button></div></div></div>' +
-    '<div class="form-box"><div class="grid3"><label class="field"><span class="field-label">کد</span><input type="text" id="newLicenseCodeInput" placeholder="A1B2C3" /></label>' +
-    '<label class="field"><span class="field-label">یادداشت</span><input type="text" id="newLicenseNoteInput" placeholder="نام مشتری" /></label>' +
-    '<div style="align-self:end;display:flex;gap:8px;"><button class="btn btn-ghost" onclick="fillGeneratedLicenseCode()">تولید</button><button class="btn btn-primary" onclick="addLicense()">افزودن</button></div></div>' +
-    '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:6px;">'+durationRadios+'</div>' +
-    '<div style="margin-top:10px;"><label class="checkbox-row"><input type="checkbox" '+(S.newLicenseScopeLimited?'checked':'')+' onchange="toggleScopeLimited(this.checked)" /><span class="small-muted">محدود به خدمات خاص (پیش‌فرض: دسترسی کامل به همه چیز)</span></label>' +
-    (S.newLicenseScopeLimited?'<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;">'+scopeChecks+'</div>':'') + '</div></div>' +
-    '<div class="stack" style="margin-bottom:18px;">'+(licenseRows||'<p class="muted">کدی ثبت نشده است.</p>')+'</div>' +
-    '<div class="section-title-row"><div style="font-weight:800;">گزارش استفاده</div><button class="btn btn-ghost btn-sm" onclick="clearLicenseLogs()">پاک</button></div>' +
-    '<div class="block">'+(logsRows||'<span class="small-muted">موردی ثبت نشده است.</span>')+'</div></div>';
-}
-function genLicenseCode(){ var chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; var s=''; for(var i=0;i<6;i++) s+=chars[Math.floor(Math.random()*chars.length)]; return s; }
-function fillGeneratedLicenseCode(){ var el=document.getElementById('newLicenseCodeInput'); if(el) el.value=genLicenseCode(); }
-function setNewLicenseDuration(m){ S.newLicenseDuration=Number(m); render(); }
-function toggleScopeLimited(checked){ S.newLicenseScopeLimited=checked; if(!checked) S.newLicenseScope=[]; render(); }
-function toggleNewLicenseScope(key, checked){
-  S.newLicenseScope = S.newLicenseScope||[];
-  if(checked){ if(S.newLicenseScope.indexOf(key)===-1) S.newLicenseScope.push(key); }
-  else { S.newLicenseScope = S.newLicenseScope.filter(function(k){return k!==key;}); }
-  render();
-}
-async function addLicense(){
-  var codeEl=document.getElementById('newLicenseCodeInput'), noteEl=document.getElementById('newLicenseNoteInput');
-  var code=codeEl?codeEl.value.trim():'', note=noteEl?noteEl.value.trim():''; var months=S.newLicenseDuration||3;
-  if(!code){ alert('کد را وارد کنید.'); return; }
-  if(S.adminData.licenses.some(function(l){return l.code===code;})){ alert('کد تکراری است.'); return; }
-  var createdAt=new Date().toISOString();
-  var scope = (S.newLicenseScopeLimited && S.newLicenseScope && S.newLicenseScope.length) ? S.newLicenseScope.slice() : ['all'];
-  S.adminData.licenses.push({code:code, note:note, durationMonths:months, createdAt:createdAt, expiresAt:addMonthsIso(createdAt, months), scope:scope, boundPhone:null});
-  S.newLicenseScopeLimited=false; S.newLicenseScope=[];
-  await persistAndRender();
-}
-async function unbindLicense(code){
-  if(!confirm('این کد آزاد شود تا دوباره (برای شمارهٔ دیگری) قابل فعال‌سازی باشد؟')) return;
-  var lic = S.adminData.licenses.find(function(l){return l.code===code;});
-  if (lic) { lic.boundPhone = null; lic.boundAt = null; }
-  await persistAndRender();
-}
-async function deleteLicense(code){ if(!confirm('حذف شود؟')) return; S.adminData.licenses = S.adminData.licenses.filter(function(l){return l.code!==code;}); await persistAndRender(); }
-async function toggleDefaultLicense(checked){ S.adminData.meta.defaultLicenseEnabled=checked; await persistAndRender(); }
-async function saveDefaultLicenseCode(){ var el=document.getElementById('defaultLicenseCodeInput'); S.adminData.meta.defaultLicenseCode=el?el.value.trim():'123'; await persistAndRender(); }
-async function clearLicenseLogs(){ if(!confirm('پاک شود؟')) return; S.adminData.licenseLogs=[]; await persistAndRender(); }
-
-// ============================================================
-// پشتیبان‌گیری
-// ============================================================
-function renderBackupsAdmin(){
-  if (!S.backupsRequested) { S.backupsRequested = true; loadBackupsList(); }
-  var listHtml;
-  if (S.backupsLoading && !(S.backupsList && S.backupsList.length)) {
-    listHtml = '<p class="muted">در حال بارگذاری فهرست نسخه‌ها...</p>';
-  } else if (S.backupsError) {
-    listHtml = '<p class="muted" style="color:var(--red);">'+esc(S.backupsError)+'</p>';
-  } else if (!S.backupsList || !S.backupsList.length) {
-    listHtml = '<p class="muted">هنوز نسخهٔ پشتیبان خودکاری ثبت نشده. اولین‌بار که تنظیمات را ذخیره کنید، یا اگر Cron روزانه فعال باشد، یک نسخه ساخته می‌شود.</p>';
-  } else {
-    listHtml = '<div class="stack">' + S.backupsList.map(function(b){
-      var d = new Date(b.at);
-      var label = isNaN(d.getTime()) ? b.at : d.toLocaleString('fa-IR');
-      return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(label)+'</div></div>' +
-        '<div class="row-actions">' +
-        '<button class="icon-btn" title="دانلود" onclick="downloadBackupByKey(\''+esc(b.key)+'\')">'+ic('download',14)+'</button>' +
-        '<button class="icon-btn" title="بازگردانی این نسخه" onclick="restoreBackup(\''+esc(b.key)+'\')">'+ic('logout',14)+'</button>' +
-        '</div></div>';
-    }).join('') + '</div>';
-  }
-  return '<div class="card"><div class="section-title tight"><h2>🗄 پشتیبان‌گیری</h2></div>' +
-    '<p class="muted" style="margin:8px 0 16px;">پیش از هر ذخیرهٔ تنظیمات، و همچنین یک‌بار در روز (در صورت فعال بودن Cron روی Worker)، یک نسخهٔ پشتیبان خودکار ساخته می‌شود. حداکثر ۱۴ نسخهٔ آخر نگه‌داری می‌شود.</p>' +
-    '<div class="btn-row start" style="margin-bottom:16px;"><button class="btn btn-primary" onclick="downloadCurrentBackup()">'+ic('download',15)+'<span>دانلود نسخهٔ فعلی (دستی)</span></button>' +
-    '<button class="btn btn-ghost" onclick="S.backupsRequested=false; render();">'+ic('trend',15)+'<span>به‌روزرسانی فهرست</span></button></div>' +
-    listHtml + '</div>';
-}
-function downloadJson(filename, data){
-  var blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a'); a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-function downloadCurrentBackup(){
-  downloadJson('maliyar-backup-'+(new Date().toISOString().slice(0,10))+'.json', S.adminData);
-}
-async function loadBackupsList(){
-  S.backupsLoading = true; S.backupsError = ''; render();
-  try{
-    var res = await Api.adminBackups(S.adminToken);
-    S.backupsList = res.backups || [];
-  }catch(e){ S.backupsError = 'دریافت فهرست نسخه‌های پشتیبان ناموفق بود.'; }
-  S.backupsLoading = false; render();
-}
-async function downloadBackupByKey(key){
-  try{
-    var data = await Api.adminBackupGet(S.adminToken, key);
-    downloadJson(key.replace(/[:/]/g,'-')+'.json', data);
-  }catch(e){ alert('دانلود این نسخهٔ پشتیبان ناموفق بود.'); }
-}
-async function restoreBackup(key){
-  if(!confirm('با بازگردانی این نسخه، داده‌ها و تنظیمات فعلی با این نسخهٔ قدیمی‌تر جایگزین می‌شود (وضعیت فعلی هم پیش از این کار خودکار پشتیبان‌گیری می‌شود). ادامه می‌دهید؟')) return;
-  S.backupsLoading = true; render();
-  try{
-    await Api.adminRestore(S.adminToken, key);
-    alert('بازگردانی انجام شد.');
-    S.backupsRequested = false;
-    var data = await Api.adminGetData(S.adminToken);
-    S.adminData = data;
-  }catch(e){ alert('بازگردانی ناموفق بود.'); }
-  S.backupsLoading = false; render();
-}
-
-// ============================================================
-// تنظیمات
-// ============================================================
-function renderSettingsAdmin(){
-  var m=S.adminData.meta;
-  var userUrl=window.location.origin+window.location.pathname+'#/';
-  var adminUrl=window.location.origin+window.location.pathname+'#/admin';
-  return '<div class="card"><div class="section-title tight"><h2>⚙️ تنظیمات</h2></div>' +
-    '<div class="alert-box info">🔗 لینک ورود کاربران: <code class="tpl-var">'+esc(userUrl)+'</code></div>' +
-    '<div class="alert-box ok">🔐 لینک ورود مدیریت: <code class="tpl-var">'+esc(adminUrl)+'</code></div>' +
-    '<div class="alert-box info" style="margin-top:8px;">رمز ورود پنل مدیریت از طریق Secret مربوط به Cloudflare Worker (متغیر <code class="tpl-var">ADMIN_PASSWORD</code>) تنظیم می‌شود، نه از این صفحه — برای تغییرش به راهنما مراجعه کنید.</div>' +
-    '<div style="margin-top:14px;">' +
-    '<label class="field"><span class="field-label">نام برند</span><input type="text" id="brandNameInput" value="'+esc(m.brandName)+'" /></label>' +
-    '<label class="field"><span class="field-label">شعار</span><input type="text" id="taglineInput" value="'+esc(m.tagline)+'" /></label>' +
-    '<label class="field"><span class="field-label">توضیح سئو (متا دیسکریپشن)</span><textarea id="seoDescInput" rows="2">'+esc(m.seoDescription||'')+'</textarea></label>' +
-    '<label class="field"><span class="field-label">شماره تماس</span><input type="text" id="phoneInput" value="'+esc(m.phone)+'" /></label>' +
-    '<label class="field"><span class="field-label">واتس‌اپ</span><input type="text" id="whatsappInput" value="'+esc(m.whatsapp||'')+'" placeholder="989121234567" /></label>' +
-    '<label class="field"><span class="field-label">ایمیل دریافت درخواست‌ها</span><input type="text" id="notifyEmailInput" value="'+esc(m.notifyEmail||'')+'" /></label>' +
-    '<label class="field"><span class="field-label">تعداد اجرای کامل رایگان (قبل از نیاز به فعال‌سازی)</span><input type="number" id="freeQueryLimitInput" value="'+esc(m.freeQueryLimit!=null?m.freeQueryLimit:2)+'" min="0" /></label>' +
-    '<label class="field"><span class="field-label">تعداد سؤال رایگان در چت با منابع (قبل از نیاز به فعال‌سازی)</span><input type="number" id="chatFreeLimitInput" value="'+esc(m.chatFreeLimit!=null?m.chatFreeLimit:2)+'" min="0" /></label>' +
-    '<label class="field"><span class="field-label">متن تبلیغاتی (نوار متحرک)</span><textarea id="adTextInput" rows="2">'+esc(m.adText||'')+'</textarea></label>' +
-    '<label class="checkbox-row"><input type="checkbox" id="adEnabledInput" '+(m.adEnabled!==false?'checked':'')+' /><span>نمایش نوار تبلیغاتی</span></label>' +
-    '<label class="field"><span class="field-label">متن شرایط و قوانین (هنگام ورود کاربر نمایش داده می‌شود)</span><textarea id="termsTextInput" rows="4">'+esc(m.termsText||'')+'</textarea></label>' +
-    '<div class="btn-row start"><button class="btn btn-primary" onclick="saveSettings()">ذخیره</button>'+(S.settingsSaved?'<span class="small-muted" style="color:var(--green);">✅ ذخیره شد</span>':'')+'</div></div>' +
-    '<div class="block" style="margin-top:18px;"><div style="font-weight:800;font-size:13.5px;margin-bottom:6px;">🤖 پاسخ‌گویی هوشمند چت با منابع</div>' +
-    '<div class="small-muted" style="margin-bottom:10px;">با فعال‌کردن این گزینه، پاسخ چت با کمک Cloudflare Workers AI (رایگان در سهمیهٔ روزانه، بدون کلید یا حساب جداگانه) نوشته می‌شود — ولی همیشه فقط بر اساس متن پایگاه دانش، بدون حدس؛ اگر پاسخ در منابع نباشد، صادقانه اعلام می‌کند. برای کارکردن این گزینه، باید در تنظیمات Worker خودتان (Settings → Bindings) یک Workers AI Binding با نام <code class="tpl-var">AI</code> اضافه کرده باشید؛ در غیر این صورت چت بدون هوش مصنوعی و فقط با نمایش بریدهٔ خام منابع کار می‌کند (که آن هم کاملاً قابل اتکاست، فقط خلاصه‌تر است).</div>' +
-    '<label class="checkbox-row"><input type="checkbox" id="aiAnswersEnabledInput" '+(m.aiAnswersEnabled?'checked':'')+' /><span>فعال‌سازی پاسخ‌گویی هوشمند مبتنی بر منابع</span></label>' +
-    '<div class="btn-row start"><button class="btn btn-primary" onclick="saveSettings()">ذخیره</button></div></div>' +
-    '<div class="block" style="margin-top:18px;"><div style="font-weight:800;font-size:13.5px;margin-bottom:10px;">🔔 تنظیمات یادآور مواعد</div>' +
-    '<label class="checkbox-row"><input type="checkbox" id="reminderEmailEnabledInput" '+((m.reminderSettings&&m.reminderSettings.emailEnabled!==false)?'checked':'')+' /><span>ارسال یادآور از طریق ایمیل</span></label>' +
-    '<label class="field" style="margin-top:8px;"><span class="field-label">چند روز قبل از موعد یادآوری ارسال شود؟</span><input type="number" id="reminderWindowInput" value="'+esc((m.reminderSettings&&m.reminderSettings.reminderWindowDays!=null)?m.reminderSettings.reminderWindowDays:3)+'" min="0" /></label>' +
-    '<label class="checkbox-row" style="margin-top:8px;"><input type="checkbox" id="smsEnabledInput" '+((m.reminderSettings&&m.reminderSettings.smsEnabled)?'checked':'')+' /><span>ارسال یادآور از طریق پیامک (کاوه‌نگار)</span></label>' +
-    '<div class="grid2" style="margin-top:8px;"><label class="field"><span class="field-label">کلید API کاوه‌نگار</span><input type="password" id="smsApiKeyInput" value="'+esc((m.reminderSettings&&m.reminderSettings.smsApiKey)||'')+'" /></label>' +
-    '<label class="field"><span class="field-label">نام فرستنده (اختیاری)</span><input type="text" id="smsSenderInput" value="'+esc((m.reminderSettings&&m.reminderSettings.smsSender)||'')+'" /></label></div>' +
-    '<div class="btn-row start"><button class="btn btn-primary" onclick="saveSettings()">ذخیره</button></div></div>' +
-    '<div class="block" style="margin-top:18px;"><div style="font-weight:800;font-size:13.5px;margin-bottom:6px;">🔒 امنیت واکشی لینک (پایگاه دانش)</div>' +
-    '<div class="small-muted" style="margin-bottom:10px;">وقتی از پنل «پایگاه دانش» یک لینک را برای استخراج محتوا وارد می‌کنید، اگر اینجا دامنه‌ای مجاز کرده باشید، فقط همان دامنه‌ها قابل واکشی هستند (برای جلوگیری از سوءاستفاده). اگر خالی بگذارید، مثل قبل هر لینکی قابل واکشی است.</div>' +
-    '<label class="field"><span class="field-label">دامنه‌های مجاز (با کاما جدا کنید — اختیاری)</span><input type="text" id="allowedFetchHostsInput" value="'+esc((m.allowedFetchHosts||[]).join(', '))+'" placeholder="intamedia.ir, rrk.ir" /></label>' +
-    '<div class="btn-row start"><button class="btn btn-primary" onclick="saveSettings()">ذخیره</button></div></div>' +
-    '<div class="block" style="margin-top:18px;"><div style="font-weight:800;font-size:13.5px;margin-bottom:6px;">🔄 به‌روزرسانی محتوای قانونی</div>' +
-    '<div class="small-muted" style="margin-bottom:10px;">سوالات، تکالیف و جرایم را به آخرین نسخه‌ای که در کد Worker تعریف شده به‌روز می‌کند. کاربران، درخواست‌ها، کدهای فعال‌سازی و تنظیمات برند شما دست‌نخورده می‌مانند.</div>' +
-    '<button class="btn btn-gold" '+(S.reseedLoading?'disabled':'')+' onclick="reseedContent()">'+ic('refresh',15)+'<span>'+(S.reseedLoading?'در حال به‌روزرسانی...':'به‌روزرسانی سوالات و تکالیف')+'</span></button>' +
-    (S.reseedMsg?'<div class="small-muted" style="margin-top:8px;color:var(--green);">'+esc(S.reseedMsg)+'</div>':'') +
-    '</div></div>';
-}
-async function reseedContent(){
-  if(!confirm('سوالات، تکالیف و جرایم فعلی با نسخهٔ جدید جایگزین می‌شود (کاربران و درخواست‌ها دست‌نخورده می‌مانند). ادامه می‌دهید؟')) return;
-  S.reseedLoading = true; S.reseedMsg=''; render();
-  try{
-    await Api._fetch('/api/admin/reseed-content', { method:'POST', headers:{ 'Authorization':'Bearer '+S.adminToken } });
-    var data = await Api.adminGetData(S.adminToken);
-    S.adminData = data;
-    apiStatus='online';
-    S.reseedMsg = '✅ محتوا با موفقیت به‌روزرسانی شد.';
-  }catch(e){
-    apiStatus='offline';
-    S.reseedMsg = '❌ به‌روزرسانی ناموفق بود. دوباره تلاش کنید.';
-  }
-  S.reseedLoading = false; render();
-}
-async function saveSettings(){
-  var ids=['brandNameInput','taglineInput','seoDescInput','phoneInput','whatsappInput','notifyEmailInput','adTextInput','freeQueryLimitInput','chatFreeLimitInput','termsTextInput','reminderWindowInput','smsApiKeyInput','smsSenderInput','allowedFetchHostsInput'];
-  var vals={}; ids.forEach(function(id){ var el=document.getElementById(id); if(el) vals[id]=el.value; });
-  var m=S.adminData.meta;
-  m.brandName=vals.brandNameInput||m.brandName; m.tagline=vals.taglineInput||''; m.seoDescription=vals.seoDescInput||'';
-  m.phone=vals.phoneInput||''; m.whatsapp=vals.whatsappInput||''; m.notifyEmail=vals.notifyEmailInput||'';
-  m.adText=vals.adTextInput||''; m.freeQueryLimit=Math.max(0,parseInt(vals.freeQueryLimitInput,10)||0);
-  m.chatFreeLimit=Math.max(0,parseInt(vals.chatFreeLimitInput,10)||0);
-  m.termsText=vals.termsTextInput||m.termsText;
-  var adEl=document.getElementById('adEnabledInput'); m.adEnabled=adEl?adEl.checked:true;
-  var aiEl=document.getElementById('aiAnswersEnabledInput'); m.aiAnswersEnabled=aiEl?aiEl.checked:false;
-  m.reminderSettings = m.reminderSettings || {};
-  var remEmailEl=document.getElementById('reminderEmailEnabledInput'); m.reminderSettings.emailEnabled = remEmailEl?remEmailEl.checked:true;
-  m.reminderSettings.reminderWindowDays = Math.max(0, parseInt(vals.reminderWindowInput,10)||3);
-  var smsEl=document.getElementById('smsEnabledInput'); m.reminderSettings.smsEnabled = smsEl?smsEl.checked:false;
-  m.reminderSettings.smsApiKey = vals.smsApiKeyInput||'';
-  m.reminderSettings.smsSender = vals.smsSenderInput||'';
-  m.reminderSettings.smsProvider = 'kavenegar';
-  m.allowedFetchHosts = (vals.allowedFetchHostsInput||'').split(',').map(function(s){return s.trim().toLowerCase();}).filter(Boolean);
-  await persistAndRender();
-  S.settingsSaved=true; render(); setTimeout(function(){ S.settingsSaved=false; render(); },1800);
-}
-
-function renderGuideAdmin(){
-  return '<div class="card"><div class="section-title tight"><h2>📖 راهنما</h2></div>' +
-    '<div class="block"><div style="font-weight:800;">۱. معماری</div><div class="small-muted">همهٔ داده‌ها یک بلاک JSON در Cloudflare KV است. فرانت‌اند (این صفحه، روی گیت‌هاب) فقط با API که روی Cloudflare Worker است صحبت می‌کند.</div></div>' +
-    '<div class="block"><div style="font-weight:800;">۲. تغییر رمز مدیریت</div><div class="small-muted">در پنل Cloudflare → Worker → Settings → Variables and Secrets → مقدار <code class="tpl-var">ADMIN_PASSWORD</code> را تغییر دهید.</div></div>' +
-    '<div class="block"><div style="font-weight:800;">۳. درخت سوالات</div><div class="small-muted">در تب «درخت سوالات» برای هر سوال، بعد از هر پاسخ می‌توانید «سوال بعدی» و «تکالیفی که فعال می‌شود» را تعیین کنید. اگر «سوال بعدی» خالی بماند، مسیر پایان می‌یابد و کاربر مستقیم به صفحهٔ تکالیف می‌رود.</div></div>' +
-    '<div class="block"><div style="font-weight:800;">۴. راهنمای کامل نصب</div><div class="small-muted">فایل <code class="tpl-var">README.md</code> همراه این پروژه را ببینید.</div></div></div>';
-}
-
-// ============================================================
-// فرم‌های عمومی (تکالیف/جرایم/قالب/بسته)
-// ============================================================
-var EMPTY_MAKERS={
-  obligation:function(){ return {id:genId('o'), title:'', appliesTo:['حقیقی','حقوقی'], fixed:false, description:'', deadline:'', reminderAfterDays:20, penaltyIds:[]}; },
-  penalty:function(){ return {id:genId('p'), title:'', description:'', calcType:'fixed', value:0, amnestyEligible:false, amnestyPercent:0, amnestyCondition:'', installmentEligible:false, maxInstallments:1, legalArticle:''}; },
-  template:function(){ return {id:genId('t'), title:'', body:''}; },
-  plan:function(){ return {id:genId('pl'), title:'', price:0, duration:'', desc:''}; },
-  kbItem:function(){ return {id:genId('kb'), title:'', keywords:[], content:'', sourceType:'text', sourceName:'', sourceUrl:''}; },
-  auditItem:function(){ return {id:genId('ac'), title:''}; }
-};
-var COLL_KEY={obligation:'obligations', penalty:'penalties', template:'templates', plan:'plans', kbItem:'knowledgeBase', auditItem:'auditChecklist'};
-
-function openAddForm(type){ S.formType=type; S.formMode='add'; S.formId=null; S.form=EMPTY_MAKERS[type](); render(); window.scrollTo(0,0); }
-function openEditForm(type,id){ var coll=S.adminData[COLL_KEY[type]]; var item=coll.find(function(x){return x.id===id;}); if(!item) return; S.formType=type; S.formMode='edit'; S.formId=id; S.form=clone(item); render(); window.scrollTo(0,0); }
-async function deleteItem(type,id){ if(!confirm('حذف شود؟')) return; var key=COLL_KEY[type]; S.adminData[key]=S.adminData[key].filter(function(x){return x.id!==id;}); await persistAndRender(); }
-async function saveForm(){
-  var key=COLL_KEY[S.formType];
-  if((S.formType==='obligation'||S.formType==='penalty'||S.formType==='template'||S.formType==='plan'||S.formType==='kbItem'||S.formType==='auditItem') && !S.form.title.trim()){ alert('عنوان را وارد کنید.'); return; }
-  if(S.formType==='plan'){ S.form.price=Number(S.form.price)||0; }
-  if(S.formType==='penalty'){ S.form.value=Number(S.form.value)||0; S.form.amnestyPercent=Number(S.form.amnestyPercent)||0; S.form.maxInstallments=Number(S.form.maxInstallments)||1; }
-  if(S.formType==='obligation'){ S.form.reminderAfterDays=Number(S.form.reminderAfterDays)||20; }
-  if(S.formMode==='add'){ S.adminData[key].push(S.form); }
-  else { S.adminData[key]=S.adminData[key].map(function(x){ return x.id===S.formId?S.form:x; }); }
-  cancelForm();
-  await persistAndRender();
-}
-function toggleAppliesTo(kind){ var arr=S.form.appliesTo||[]; var idx=arr.indexOf(kind); if(idx===-1) arr=arr.concat([kind]); else arr=arr.filter(function(x){return x!==kind;}); S.form.appliesTo=arr; render(); }
-function toggleMultiId(field,id){ var arr=S.form[field]||[]; var idx=arr.indexOf(id); if(idx===-1) arr=arr.concat([id]); else arr=arr.filter(function(x){return x!==id;}); S.form[field]=arr; render(); }
-function renderMultiCheck(allItems, selectedIds, field){
-  return '<div class="multi-check">'+allItems.map(function(item){
-    var checked=(selectedIds||[]).indexOf(item.id)!==-1;
-    return '<label class="checkbox-row"><input type="checkbox" '+(checked?'checked':'')+' onchange="toggleMultiId(\''+field+'\',\''+item.id+'\')" /><span>'+esc(item.title||item.text)+'</span></label>';
-  }).join('')+'</div>';
-}
-
-// ============================================================
-// راه‌اندازی برنامه
-// ============================================================
-async function boot(){
-  onRoute();
-  capturePendingReferral();
-  restoreAuthSession();
-  initPwaInstall();
-  registerServiceWorker();
-  render();
-
-  try{
-    CATALOG = await Api.getData();
-    apiStatus = 'online';
-  }catch(e){
-    apiStatus = 'offline';
+    console.log('\n(بک‌تست فارکس رد شد — TWELVE_DATA_API_KEY تنظیم نشده. رایگانه، از twelvedata.com بگیرید)');
   }
 
-  if (S.route === 'admin') {
-    await tryRestoreAdminSession();
-  }
+  // rough half-split using the longest series' bar count as a proxy timeline
+  const maxBars = Math.max(...cryptoPerSymbol.map(c=>c.totalBars), 260);
+  const halves = splitHalves(allCryptoTrades, maxBars);
 
-  if (!S.wiz.lead.planId && CATALOG.plans && CATALOG.plans[0]) S.wiz.lead.planId = CATALOG.plans[0].id;
-  if (!S.wiz.templateId && CATALOG.templates && CATALOG.templates[0]) S.wiz.templateId = CATALOG.templates[0].id;
+  const output = {
+    generated_at_utc: new Date().toISOString(),
+    min_score_threshold: 70,
+    crypto: { overall: summarize(allCryptoTrades), per_symbol: cryptoPerSymbol, consistency_check_first_vs_second_half: halves },
+    forex: forexResult,
+    disclaimer: 'نتایج تاریخی تضمینی برای عملکرد آینده نیست. بدون کارمزد/اسپرد اجرا شده. ویژگی‌های زنده‌ٔ جدیدتر (شاخص دلار مصنوعی، فیلتر نشست معاملاتی، NFP) در این بک‌تست لحاظ نشدن — عملکرد واقعی‌شون از طریق ردیابی زندهٔ سیگنال‌ها (Signal History) سنجیده می‌شه، نه این بک‌تست.',
+  };
 
-  render();
+  const fs = await import('fs');
+  fs.writeFileSync('backtest-results.json', JSON.stringify(output, null, 2));
+  console.log('\n=== نتیجهٔ کلی کریپتو ===', output.crypto.overall);
+  console.log('=== نیمهٔ اول در برابر نیمهٔ دوم (چک ثبات) ===', halves);
+  if (forexResult) console.log('=== نتیجهٔ کلی فارکس ===', forexResult.overall);
+  console.log('\nذخیره شد در backtest-results.json');
 }
 
-if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', boot); } else { boot(); }
-</script>
-</body>
-</html>
+main().catch(e=>{ console.error(e); process.exit(1); });
