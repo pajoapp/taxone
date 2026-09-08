@@ -315,7 +315,7 @@ var Api = {
     return data;
   },
   getData(){ return this._fetch('/api/data'); },
-  register(name, phone, ref){ return this._fetch('/api/register', { method:'POST', body:{name:name, phone:phone, ref:ref||''} }); },
+  register(name, phone, ref){ return this._fetch('/api/register', { method:'POST', body:{name:name, phone:phone, ref:ref||'', repCode: lsGet('pending_repcode')||''} }); },
   usage(phone){ return this._fetch('/api/usage', { method:'POST', body:{phone:phone} }); },
   verifyLicense(code, phone){ return this._fetch('/api/license/verify', { method:'POST', body:{code:code, phone:phone||''} }); },
   submitLead(lead){ return this._fetch('/api/leads', { method:'POST', body:lead }); },
@@ -334,7 +334,9 @@ var Api = {
   me(phone){ return this._fetch('/api/me', { method:'POST', body:{phone:phone} }); },
   adminBackups(token){ return this._fetch('/api/admin/backups', { headers:{ 'Authorization':'Bearer '+token } }); },
   adminBackupGet(token, key){ return this._fetch('/api/admin/backup?key='+encodeURIComponent(key), { headers:{ 'Authorization':'Bearer '+token } }); },
-  adminRestore(token, key){ return this._fetch('/api/admin/restore', { method:'POST', headers:{ 'Authorization':'Bearer '+token }, body:{key:key} }); }
+  adminRestore(token, key){ return this._fetch('/api/admin/restore', { method:'POST', headers:{ 'Authorization':'Bearer '+token }, body:{key:key} }); },
+  repLogin(code, password){ return this._fetch('/api/rep/login', { method:'POST', body:{code:code, password:password} }); },
+  repMe(token){ return this._fetch('/api/rep/me', { headers:{ 'Authorization':'Bearer '+token } }); }
 };
 
 // ============================================================
@@ -355,6 +357,8 @@ function onRoute(){
   if (parts[0] === 'admin') {
     S.route = 'admin';
     S.adminTab = parts[1] || S.adminTab || 'dashboard';
+  } else if (parts[0] === 'rep') {
+    S.route = 'rep';
   } else if (parts[0] === 'wizard') {
     S.route = 'user';
     S.wiz.step = parts[1] || 'intro';
@@ -452,7 +456,8 @@ function renderApp(){
     '<main class="container">' +
       renderDisclaimer() +
       (S.route==='user' ? renderNewsBanner() : '') +
-      (S.route==='user' ? (S.authPhone ? renderUserWizard() : renderAuthGate()) : (S.adminAuthed ? renderAdminPanel() : renderAdminGate())) +
+      (S.route==='rep' ? (S.repAuthed ? renderRepDashboard() : renderRepGate()) :
+       S.route==='user' ? (S.authPhone ? renderUserWizard() : renderAuthGate()) : (S.adminAuthed ? renderAdminPanel() : renderAdminGate())) +
     '</main>' +
     renderFooter();
 }
@@ -485,6 +490,7 @@ function renderHeader(){
   var meta = CATALOG.meta || {};
   var actions = '';
   if (S.route==='admin' && S.adminAuthed) actions = renderApiPill() + '<button class="btn btn-ghost btn-sm" onclick="logoutAdmin()">'+ic('logout',14)+' خروج</button>';
+  else if (S.route==='rep' && S.repAuthed) actions = renderApiPill() + '<button class="btn btn-ghost btn-sm" onclick="logoutRep()">'+ic('logout',14)+' خروج</button>';
   else if (S.route==='user') actions = renderApiPill();
   return '<header class="site-header"><div class="container inner">' +
     '<a href="#/" class="brand" style="text-decoration:none;">' +
@@ -549,6 +555,8 @@ function capturePendingReferral(){
     var params = new URLSearchParams(window.location.search);
     var ref = (params.get('ref')||'').trim().toUpperCase();
     if (ref) lsSet('pending_ref', ref);
+    var repCode = (params.get('repcode')||'').trim().toUpperCase();
+    if (repCode) lsSet('pending_repcode', repCode);
   }catch(e){}
 }
 
@@ -580,7 +588,7 @@ async function submitAuth(){
     apiStatus = 'online';
     var key = phone.replace(/^0/,'');
     S.authPhone = key; S.authName = name; S.remaining = res.remaining; S.myRefCode = res.refCode || '';
-    lsSet('auth_phone', key); lsSet('auth_name', name); lsDel('pending_ref');
+    lsSet('auth_phone', key); lsSet('auth_name', name); lsDel('pending_ref'); lsDel('pending_repcode');
     S.authLoading = false;
     go('');
   }catch(e){
@@ -1255,6 +1263,69 @@ async function tryAdminLogin(){
 }
 function logoutAdmin(){ S.adminAuthed=false; S.adminToken=null; S.adminData=null; lsDel('admin_token'); go(''); }
 
+// ============================================================
+// پنل نماینده — داشبورد محدود و اختصاصی برای هر نماینده فروش
+// ============================================================
+function renderRepGate(){
+  return '<div class="card narrow"><div class="lock-wrap"><div class="lock-badge">'+ic('users',22,'#E7C878')+'</div><h2>ورود نماینده</h2><p>کد نمایندگی و رمز عبور خود را وارد کنید.</p></div>' +
+    '<label class="field"><span class="field-label">کد نمایندگی</span><input type="text" id="repCodeInput" placeholder="TABRIZ-AHMADI" onkeydown="if(event.key===\'Enter\')tryRepLogin();" /></label>' +
+    '<label class="field"><span class="field-label">رمز عبور</span><input type="password" id="repPassInput" placeholder="••••••" onkeydown="if(event.key===\'Enter\')tryRepLogin();" /></label>' +
+    (S.repLoginError?'<div class="field-error">'+esc(S.repLoginError)+'</div>':'') +
+    '<div class="btn-row start"><button class="btn btn-gold" '+(S.repLoading?'disabled':'')+' onclick="tryRepLogin()">'+ic('lock',15)+'<span>'+(S.repLoading?'در حال ورود...':'ورود')+'</span></button><button class="btn btn-ghost" onclick="go(\'\')">انصراف</button></div></div>';
+}
+async function tryRepLogin(){
+  var codeEl=document.getElementById('repCodeInput'), passEl=document.getElementById('repPassInput');
+  var code=codeEl?codeEl.value.trim():'', pass=passEl?passEl.value:'';
+  S.repLoading=true; S.repLoginError=''; render();
+  try{
+    var res = await Api.repLogin(code, pass);
+    apiStatus='online';
+    S.repToken = res.token; lsSet('rep_token', res.token);
+    S.repAuthed = true; S.repLoading=false;
+    await loadRepData();
+    render();
+  }catch(e){
+    apiStatus = (e && e.status) ? 'online' : 'offline';
+    S.repLoading=false;
+    S.repLoginError = (e && e.status===401) ? 'کد یا رمز اشتباه است.' : 'خطا در برقراری ارتباط با سرور.';
+    render();
+  }
+}
+function logoutRep(){ S.repAuthed=false; S.repToken=null; S.repData=null; lsDel('rep_token'); go(''); }
+async function loadRepData(){
+  try{ S.repData = await Api.repMe(S.repToken); apiStatus='online'; }
+  catch(e){ apiStatus='offline'; if (e && e.status===401) logoutRep(); }
+}
+function tierLabel(t){ return t==='gold'?'طلایی':t==='silver'?'نقره‌ای':'برنزی'; }
+function renderRepDashboard(){
+  if (!S.repData) { loadRepData().then(render); return '<div class="card"><p class="muted">در حال بارگذاری...</p></div>'; }
+  var d = S.repData;
+  var link = window.location.origin + window.location.pathname + '?repcode=' + d.code;
+  var salesRows = (d.sales||[]).map(function(s){
+    var statusBadge = s.status==='paid' ? '<span class="badge badge-green">پرداخت‌شده</span>' : '<span class="badge badge-gold">در انتظار</span>';
+    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(s.customerName||'بدون نام')+'</div>' +
+      '<div class="row-sub">مبلغ: '+toman(s.amount||0)+' — کمیسیون: '+toman(s.commissionAmount||0)+' — '+new Date(s.createdAt).toLocaleDateString('fa-IR')+' '+statusBadge+'</div></div></div>';
+  }).join('');
+  return '<div class="card"><div class="section-title tight"><h2>سلام '+esc(d.name)+' 👋</h2></div>' +
+    '<p class="muted" style="margin:6px 0 16px;">کد نمایندگی: <b>'+esc(d.code)+'</b> — سطح: <b>'+tierLabel(d.tier)+'</b> ('+toFa(d.commissionPercent)+'٪ کمیسیون)</p>' +
+    '<div class="grid3" style="margin-bottom:18px;">' +
+      '<div class="stat-box"><div class="stat-value">'+toFa(d.signupsCount)+'</div><div class="stat-label">ثبت‌نام با لینک شما</div></div>' +
+      '<div class="stat-box"><div class="stat-value">'+toman(d.pendingCommission)+'</div><div class="stat-label">کمیسیون در انتظار</div></div>' +
+      '<div class="stat-box"><div class="stat-value">'+toman(d.paidCommission)+'</div><div class="stat-label">کمیسیون پرداخت‌شده</div></div>' +
+    '</div>' +
+    '<div class="block" style="margin-bottom:18px;"><div style="font-weight:800;font-size:13px;margin-bottom:8px;">لینک اختصاصی شما</div>' +
+    '<div class="small-muted" style="word-break:break-all;margin-bottom:8px;">'+esc(link)+'</div>' +
+    (d.discountCode ? ('<div class="small-muted">کد تخفیف مشتریان شما: <b>'+esc(d.discountCode)+'</b> ('+toFa(d.discountPercent||0)+'٪ تخفیف)</div>') : '') +
+    '<button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="copyRepLink(\''+esc(link)+'\')">'+ic('copy',13)+'<span>'+(S.repCopyMsg||'کپی لینک')+'</span></button></div>' +
+    '<div style="font-weight:800;font-size:13px;margin-bottom:8px;">فروش‌های شما</div>' +
+    '<div class="stack">'+(salesRows||'<p class="muted">هنوز فروشی ثبت نشده است.</p>')+'</div></div>';
+}
+function copyRepLink(link){
+  function done(){ S.repCopyMsg='کپی شد!'; render(); setTimeout(function(){ S.repCopyMsg=''; render(); }, 1800); }
+  if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(link).then(done).catch(function(){ prompt('لینک:', link); }); }
+  else { prompt('لینک:', link); }
+}
+
 async function tryRestoreAdminSession(){
   var tok = lsGet('admin_token');
   if (!tok) return;
@@ -1262,6 +1333,14 @@ async function tryRestoreAdminSession(){
     var data = await Api.adminGetData(tok);
     S.adminToken = tok; S.adminData = data; S.adminAuthed = true;
   }catch(e){ lsDel('admin_token'); }
+}
+async function tryRestoreRepSession(){
+  var tok = lsGet('rep_token');
+  if (!tok) return;
+  try{
+    var data = await Api.repMe(tok);
+    S.repToken = tok; S.repData = data; S.repAuthed = true;
+  }catch(e){ lsDel('rep_token'); }
 }
 
 async function saveAdminData(){
@@ -1302,6 +1381,7 @@ var ADMIN_TABS = [
   {id:'licenses', label:'کدهای فعال‌سازی', icon:'key'},
   {id:'settings', label:'تنظیمات', icon:'settings'},
   {id:'news', label:'اخبار مالیاتی', icon:'alert'},
+  {id:'reps', label:'نمایندگان', icon:'users'},
   {id:'backups', label:'پشتیبان‌گیری', icon:'download'},
   {id:'guide', label:'راهنما', icon:'book'}
 ];
@@ -1327,6 +1407,7 @@ function renderAdminPanel(){
   else if(S.adminTab==='settings') body=renderSettingsAdmin();
   else if(S.adminTab==='backups') body=renderBackupsAdmin();
   else if(S.adminTab==='news') body=renderNewsAdmin();
+  else if(S.adminTab==='reps') body=renderRepsAdmin();
   else if(S.adminTab==='guide') body=renderGuideAdmin();
   return tabsHtml+body;
 }
@@ -1362,776 +1443,4 @@ function renderUsersAdmin(){
       '<div class="row-sub">استعلام: '+toFa(used)+' از '+toFa(limit)+' — ثبت: '+new Date(u.createdAt).toLocaleDateString('fa-IR')+'</div></div>' +
       '<div class="row-actions"><button class="icon-btn" onclick="resetUserQuota(\''+k+'\')" title="بازنشانی سهمیه">'+ic('refresh',14)+'</button></div></div>';
   }).join('');
-  return '<div class="card"><div class="section-title tight"><h2>👤 کاربران ثبت‌نامی</h2></div><div class="stack">'+(rows||'<p class="muted">هنوز کاربری ثبت نشده است.</p>')+'</div></div>';
-}
-async function resetUserQuota(key){ if(!S.adminData.users[key]) return; S.adminData.users[key].queryCount=0; await persistAndRender(); }
-
-// ============================================================
-// درخت سوالات
-// ============================================================
-function renderQuestionsAdmin(){
-  var d=S.adminData;
-  var formHtml='';
-  if(S.formType==='question'){
-    var f=S.form;
-    var allQOptions = d.questions.map(function(qq){ return '<option value="'+qq.id+'">'+esc(qq.id)+' — '+esc(qq.text.slice(0,40))+'</option>'; }).join('');
-    var optsHtml=f.options.map(function(opt,idx){
-      return '<div class="opt-box"><div class="opt-row"><input type="text" value="'+esc(opt.label)+'" oninput="S.form.options['+idx+'].label=this.value" placeholder="متن گزینه (مثلاً بله)" /><button class="icon-btn danger" onclick="removeQOption('+idx+')">'+ic('x',14,'var(--red)')+'</button></div>' +
-        '<label class="field-label" style="margin-top:6px;display:block;">سوال بعدی</label>' +
-        '<select onchange="S.form.options['+idx+'].nextId=this.value||null; render();"><option value="">— پایان (برو به مرحلهٔ تکالیف) —</option>'+
-          d.questions.filter(function(qq){return qq.id!==f.id;}).map(function(qq){ return '<option value="'+qq.id+'" '+(opt.nextId===qq.id?'selected':'')+'>'+esc(qq.id)+' — '+esc(qq.text.slice(0,40))+'</option>'; }).join('') +
-        '</select>' +
-        '<div class="small-muted" style="margin-top:8px;">تکالیفی که با انتخاب این گزینه فعال می‌شود:</div>'+renderMultiCheckOpt(idx, opt.obligationIds)+'</div>';
-    }).join('');
-    formHtml='<div class="form-box"><label class="field"><span class="field-label">متن سوال</span><input type="text" value="'+esc(f.text)+'" oninput="S.form.text=this.value" /></label>' +
-      '<label class="field"><span class="field-label">شناسه (id) — یکتا، بدون فاصله</span><input type="text" value="'+esc(f.id)+'" oninput="S.form.id=this.value" '+(S.formMode==='edit'?'disabled':'')+' /></label>' +
-      '<label class="field"><span class="field-label">نمایش برای</span><div style="display:flex;gap:16px;">' +
-        '<label class="checkbox-row"><input type="checkbox" '+((f.appliesTo||[]).indexOf('حقیقی')!==-1?'checked':'')+' onchange="toggleAppliesTo(\'حقیقی\')" /><span>حقیقی</span></label>' +
-        '<label class="checkbox-row"><input type="checkbox" '+((f.appliesTo||[]).indexOf('حقوقی')!==-1?'checked':'')+' onchange="toggleAppliesTo(\'حقوقی\')" /><span>حقوقی</span></label>' +
-      '</div></label>' +
-      '<div style="font-weight:700;font-size:13.5px;margin:10px 0 8px;">گزینه‌های پاسخ</div>'+optsHtml +
-      '<button class="btn btn-ghost btn-sm" onclick="addQOption()">'+ic('plus',13)+'<span>افزودن گزینه</span></button>' +
-      '<div class="btn-row start" style="margin-top:14px;"><button class="btn btn-primary" onclick="saveQuestionForm()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
-  }
-  var rootReal = (d.meta.rootQuestion||{})['حقیقی'] || '';
-  var rootLegal = (d.meta.rootQuestion||{})['حقوقی'] || '';
-  var qOptionsReal = d.questions.filter(function(q){return (q.appliesTo||[]).indexOf('حقیقی')!==-1;}).map(function(q){ return '<option value="'+q.id+'" '+(rootReal===q.id?'selected':'')+'>'+esc(q.id)+' — '+esc(q.text.slice(0,40))+'</option>'; }).join('');
-  var qOptionsLegal = d.questions.filter(function(q){return (q.appliesTo||[]).indexOf('حقوقی')!==-1;}).map(function(q){ return '<option value="'+q.id+'" '+(rootLegal===q.id?'selected':'')+'>'+esc(q.id)+' — '+esc(q.text.slice(0,40))+'</option>'; }).join('');
-  var rootPicker = '<div class="block" style="margin-bottom:16px;"><div style="font-weight:700;font-size:13px;margin-bottom:8px;">سوال شروع درخت (اولین سوال بعد از انتخاب نوع شخصیت)</div><div class="grid2">' +
-    '<label class="field"><span class="field-label">شروع برای حقیقی</span><select onchange="setRootQuestion(\'حقیقی\', this.value)"><option value="">— هیچ (مستقیم برو به تکالیف) —</option>'+qOptionsReal+'</select></label>' +
-    '<label class="field"><span class="field-label">شروع برای حقوقی</span><select onchange="setRootQuestion(\'حقوقی\', this.value)"><option value="">— هیچ (مستقیم برو به تکالیف) —</option>'+qOptionsLegal+'</select></label>' +
-  '</div></div>';
-  var list=d.questions.map(function(q){
-    var flow = q.options.map(function(o){ return esc(o.label)+' ← '+(o.nextId?('برو به «'+esc(o.nextId)+'»'):'پایان (تکالیف)')+(o.obligationIds&&o.obligationIds.length?(' + '+toFa(o.obligationIds.length)+' تکلیف'):''); }).join(' | ');
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(q.id)+' — '+esc(q.text)+'</div><div class="row-sub">'+esc((q.appliesTo||[]).join('، '))+'</div><div class="tree-flow">'+flow+'</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="openEditQuestion(\''+q.id+'\')">'+ic('edit',14)+'</button><button class="icon-btn danger" onclick="deleteQuestion(\''+q.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>🌳 درخت سوالات</h2></div>'+(S.formType==='question'?'':'<button class="btn btn-primary btn-sm" onclick="openAddQuestion()">'+ic('plus',13)+'<span>سوال جدید</span></button>')+'</div>' +
-    (S.formType==='question'?'':rootPicker) + formHtml + '<div class="stack">'+(list||'<p class="muted">سوالی ثبت نشده است.</p>')+'</div></div>';
-}
-function renderMultiCheckOpt(idx, selectedIds){
-  return '<div class="multi-check">'+S.adminData.obligations.map(function(item){
-    var checked=(selectedIds||[]).indexOf(item.id)!==-1;
-    return '<label class="checkbox-row"><input type="checkbox" '+(checked?'checked':'')+' onchange="toggleQOptionObligation('+idx+',\''+item.id+'\')" /><span>'+esc(item.title)+'</span></label>';
-  }).join('')+'</div>';
-}
-function toggleQOptionObligation(idx, obId){ var arr=S.form.options[idx].obligationIds||[]; var i=arr.indexOf(obId); if(i===-1) arr=arr.concat([obId]); else arr=arr.filter(function(x){return x!==obId;}); S.form.options[idx].obligationIds=arr; render(); }
-function addQOption(){ S.form.options.push({id:genId('opt'), label:'', nextId:null, obligationIds:[]}); render(); }
-function removeQOption(idx){ S.form.options=S.form.options.filter(function(_,i){return i!==idx;}); render(); }
-function openAddQuestion(){ S.formType='question'; S.formMode='add'; S.formId=null; S.form={id:genId('q'), text:'', appliesTo:['حقیقی','حقوقی'], options:[{id:genId('opt'), label:'بله', nextId:null, obligationIds:[]},{id:genId('opt'), label:'خیر', nextId:null, obligationIds:[]}]}; render(); window.scrollTo(0,0); }
-function openEditQuestion(id){ var q=S.adminData.questions.find(function(x){return x.id===id;}); if(!q) return; S.formType='question'; S.formMode='edit'; S.formId=id; S.form=clone(q); render(); window.scrollTo(0,0); }
-async function deleteQuestion(id){
-  if(!confirm('این سوال حذف شود؟ گزینه‌های سایر سوالات که به این سوال اشاره می‌کنند باید دستی اصلاح شوند.')) return;
-  S.adminData.questions = S.adminData.questions.filter(function(x){return x.id!==id;});
-  Object.keys(S.adminData.meta.rootQuestion||{}).forEach(function(k){ if(S.adminData.meta.rootQuestion[k]===id) S.adminData.meta.rootQuestion[k]=''; });
-  await persistAndRender();
-}
-async function saveQuestionForm(){
-  if(!S.form.text.trim()){ alert('متن سوال را وارد کنید.'); return; }
-  if(!S.form.id.trim()){ alert('شناسه را وارد کنید.'); return; }
-  var exists = S.adminData.questions.some(function(x){return x.id===S.form.id && S.formMode==='add';});
-  if(exists){ alert('این شناسه تکراری است.'); return; }
-  if(S.formMode==='add'){ S.adminData.questions.push(S.form); }
-  else { S.adminData.questions = S.adminData.questions.map(function(x){ return x.id===S.formId?S.form:x; }); }
-  cancelForm();
-  await persistAndRender();
-}
-async function setRootQuestion(personType, qId){
-  S.adminData.meta.rootQuestion = S.adminData.meta.rootQuestion || {};
-  S.adminData.meta.rootQuestion[personType] = qId || '';
-  await persistAndRender();
-}
-
-// ============================================================
-// تکالیف
-// ============================================================
-function renderObligationsAdmin(){
-  var d=S.adminData;
-  var formHtml='';
-  if(S.formType==='obligation'){
-    var f=S.form;
-    formHtml='<div class="form-box"><label class="field"><span class="field-label">عنوان</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
-      '<label class="field"><span class="field-label">توضیح</span><textarea rows="3" oninput="S.form.description=this.value">'+esc(f.description)+'</textarea></label>' +
-      '<label class="field"><span class="field-label">موعد</span><input type="text" value="'+esc(f.deadline)+'" oninput="S.form.deadline=this.value" /></label>' +
-      '<label class="field"><span class="field-label">یادآوری چند روز پس از شناسایی این تکلیف ارسال شود؟</span><input type="number" value="'+esc(f.reminderAfterDays!=null?f.reminderAfterDays:20)+'" oninput="S.form.reminderAfterDays=this.value" /></label>' +
-      '<label class="checkbox-row"><input type="checkbox" '+(f.fixed?'checked':'')+' onchange="S.form.fixed=this.checked; render();" /><span>ثابت (بدون نیاز به سوال، بلافاصله بعد از انتخاب نوع شخصیت نشان داده شود)</span></label>' +
-      '<label class="field"><span class="field-label">نمایش برای</span><div style="display:flex;gap:16px;">' +
-        '<label class="checkbox-row"><input type="checkbox" '+((f.appliesTo||[]).indexOf('حقیقی')!==-1?'checked':'')+' onchange="toggleAppliesTo(\'حقیقی\')" /><span>حقیقی</span></label>' +
-        '<label class="checkbox-row"><input type="checkbox" '+((f.appliesTo||[]).indexOf('حقوقی')!==-1?'checked':'')+' onchange="toggleAppliesTo(\'حقوقی\')" /><span>حقوقی</span></label>' +
-      '</div></label>' +
-      '<label class="field"><span class="field-label">جرایم مرتبط</span>'+renderMultiCheck(d.penalties, f.penaltyIds, 'penaltyIds')+'</label>' +
-      '<div class="btn-row start"><button class="btn btn-primary" onclick="saveForm()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
-  }
-  var list=d.obligations.map(function(o){
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+(o.fixed?'⭐ ':'')+esc(o.title)+'</div><div class="row-sub">'+esc((o.appliesTo||[]).join('، '))+' — '+esc(o.deadline)+'</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="openEditForm(\'obligation\',\''+o.id+'\')">'+ic('edit',14)+'</button><button class="icon-btn danger" onclick="deleteItem(\'obligation\',\''+o.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>📋 تکالیف</h2></div>'+(S.formType==='obligation'?'':'<button class="btn btn-primary btn-sm" onclick="openAddForm(\'obligation\')">'+ic('plus',13)+'<span>جدید</span></button>')+'</div>'+formHtml+'<div class="stack">'+(list||'<p class="muted">تکلیفی ثبت نشده است.</p>')+'</div></div>';
-}
-
-// ============================================================
-// جرایم
-// ============================================================
-function renderPenaltiesAdmin(){
-  var d=S.adminData;
-  var formHtml='';
-  if(S.formType==='penalty'){
-    var f=S.form;
-    formHtml='<div class="form-box"><label class="field"><span class="field-label">عنوان</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
-      '<label class="field"><span class="field-label">توضیح</span><textarea rows="3" oninput="S.form.description=this.value">'+esc(f.description)+'</textarea></label>' +
-      '<label class="field"><span class="field-label">ماده قانونی</span><input type="text" value="'+esc(f.legalArticle||'')+'" oninput="S.form.legalArticle=this.value" /></label>' +
-      '<label class="field"><span class="field-label">نوع محاسبه</span><select onchange="S.form.calcType=this.value; render();">' +
-        '<option value="fixed" '+(f.calcType==='fixed'?'selected':'')+'>مبلغ ثابت</option>' +
-        '<option value="percent" '+(f.calcType==='percent'?'selected':'')+'>درصدی</option>' +
-        '<option value="permonth" '+(f.calcType==='permonth'?'selected':'')+'>مبلغ هر ماه</option>' +
-        '<option value="permonth_percent" '+(f.calcType==='permonth_percent'?'selected':'')+'>درصدی هر ماه</option>' +
-      '</select></label>' +
-      '<label class="field"><span class="field-label">'+(f.calcType==='fixed'?'مبلغ':(f.calcType==='percent'||f.calcType==='permonth_percent'?'درصد':'مبلغ هر ماه'))+'</span><input type="number" value="'+esc(f.value)+'" oninput="S.form.value=this.value" /></label>' +
-      '<label class="field"><span class="field-label">بخشودگی</span><div style="display:flex;align-items:center;gap:16px;">' +
-        '<label class="checkbox-row"><input type="checkbox" '+(f.amnestyEligible?'checked':'')+' onchange="S.form.amnestyEligible=this.checked; render();" /><span>بله</span></label>' +
-        (f.amnestyEligible?'<input style="max-width:160px;" type="number" value="'+esc(f.amnestyPercent)+'" oninput="S.form.amnestyPercent=this.value" placeholder="درصد" />':'') +
-      '</div></label>' +
-      (f.amnestyEligible?'<label class="field"><span class="field-label">شرط بخشودگی</span><input type="text" value="'+esc(f.amnestyCondition||'')+'" oninput="S.form.amnestyCondition=this.value" /></label>':'') +
-      '<label class="field"><span class="field-label">تقسیط</span><div style="display:flex;align-items:center;gap:16px;">' +
-        '<label class="checkbox-row"><input type="checkbox" '+(f.installmentEligible?'checked':'')+' onchange="S.form.installmentEligible=this.checked; render();" /><span>بله</span></label>' +
-        (f.installmentEligible?'<input style="max-width:160px;" type="number" value="'+esc(f.maxInstallments)+'" oninput="S.form.maxInstallments=this.value" placeholder="تعداد" />':'') +
-      '</div></label>' +
-      '<div class="btn-row start"><button class="btn btn-primary" onclick="saveForm()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
-  }
-  var list=d.penalties.map(function(p){
-    var sub=calcTypeLabel(p.calcType)+' — '+(p.calcType==='percent'||p.calcType==='permonth_percent'?toFa(p.value)+'٪':toman(p.value))+' — بخشودگی: '+(p.amnestyEligible?toFa(p.amnestyPercent)+'٪':'ندارد')+' — اقساط: '+(p.installmentEligible?('تا '+toFa(p.maxInstallments)+' قسط'):'ندارد');
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(p.title)+'</div><div class="row-sub">'+sub+'</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="openEditForm(\'penalty\',\''+p.id+'\')">'+ic('edit',14)+'</button><button class="icon-btn danger" onclick="deleteItem(\'penalty\',\''+p.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>⚖️ جرایم</h2></div>'+(S.formType==='penalty'?'':'<button class="btn btn-primary btn-sm" onclick="openAddForm(\'penalty\')">'+ic('plus',13)+'<span>جدید</span></button>')+'</div>'+formHtml+'<div class="stack">'+(list||'<p class="muted">جریمه‌ای ثبت نشده است.</p>')+'</div></div>';
-}
-
-// ============================================================
-// قالب‌های لایحه
-// ============================================================
-function renderTemplatesAdmin(){
-  var d=S.adminData;
-  var formHtml='';
-  if(S.formType==='template'){
-    var f=S.form;
-    formHtml='<div class="form-box"><label class="field"><span class="field-label">عنوان</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
-      '<label class="field"><span class="field-label">متن</span><textarea rows="10" oninput="S.form.body=this.value">'+esc(f.body)+'</textarea></label>' +
-      '<div class="btn-row start"><button class="btn btn-primary" onclick="saveForm()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
-  }
-  var list=d.templates.map(function(t){
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(t.title)+'</div><div class="row-sub">'+esc(t.body.slice(0,80))+'...</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="openEditForm(\'template\',\''+t.id+'\')">'+ic('edit',14)+'</button><button class="icon-btn danger" onclick="deleteItem(\'template\',\''+t.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>📄 قالب‌های لایحه</h2></div>'+(S.formType==='template'?'':'<button class="btn btn-primary btn-sm" onclick="openAddForm(\'template\')">'+ic('plus',13)+'<span>جدید</span></button>')+'</div>' +
-    '<div class="block small-muted">متغیرها: <span class="tpl-var">{{taxpayerType}}</span> <span class="tpl-var">{{penaltiesList}}</span> <span class="tpl-var">{{totalRaw}}</span> <span class="tpl-var">{{totalAmnesty}}</span> <span class="tpl-var">{{date}}</span></div>' +
-    formHtml+'<div class="stack">'+(list||'<p class="muted">قالبی ثبت نشده است.</p>')+'</div></div>';
-}
-
-// ============================================================
-// بسته‌های مشاوره
-// ============================================================
-function renderPlansAdmin(){
-  var d=S.adminData;
-  var formHtml='';
-  if(S.formType==='plan'){
-    var f=S.form;
-    formHtml='<div class="form-box"><label class="field"><span class="field-label">عنوان</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
-      '<label class="field"><span class="field-label">مدت</span><input type="text" value="'+esc(f.duration)+'" oninput="S.form.duration=this.value" /></label>' +
-      '<label class="field"><span class="field-label">قیمت (تومان)</span><input type="number" value="'+esc(f.price)+'" oninput="S.form.price=this.value" /></label>' +
-      '<label class="field"><span class="field-label">توضیح</span><textarea rows="3" oninput="S.form.desc=this.value">'+esc(f.desc)+'</textarea></label>' +
-      '<div class="btn-row start"><button class="btn btn-primary" onclick="saveForm()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
-  }
-  var list=d.plans.map(function(p){
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(p.title)+'</div><div class="row-sub">'+esc(p.duration)+' — '+(p.price===0?'رایگان':toman(p.price))+'</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="openEditForm(\'plan\',\''+p.id+'\')">'+ic('edit',14)+'</button><button class="icon-btn danger" onclick="deleteItem(\'plan\',\''+p.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>📦 بسته‌های مشاوره</h2></div>'+(S.formType==='plan'?'':'<button class="btn btn-primary btn-sm" onclick="openAddForm(\'plan\')">'+ic('plus',13)+'<span>جدید</span></button>')+'</div>'+formHtml+'<div class="stack">'+(list||'<p class="muted">بسته‌ای ثبت نشده است.</p>')+'</div></div>';
-}
-
-// ============================================================
-// خدمات آنلاین — قیمت‌گذاری (ویرایش‌فقط، بدون افزودن/حذف چون هر سرویس ثابت در کد است)
-// ============================================================
-function renderServicePlansAdmin(){
-  var d=S.adminData;
-  d.servicePlans = d.servicePlans || [];
-  var formHtml='';
-  if(S.formType==='servicePlanEdit'){
-    var f=S.form;
-    formHtml='<div class="form-box"><label class="field"><span class="field-label">عنوان</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
-      '<label class="field"><span class="field-label">قیمت (تومان — صفر یعنی رایگان)</span><input type="number" value="'+esc(f.price)+'" oninput="S.form.price=this.value" /></label>' +
-      '<label class="field"><span class="field-label">توضیح</span><textarea rows="2" oninput="S.form.desc=this.value">'+esc(f.desc)+'</textarea></label>' +
-      '<div class="btn-row start"><button class="btn btn-primary" onclick="saveServicePlan()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
-  }
-  var list=d.servicePlans.map(function(p){
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(p.title)+'</div><div class="row-sub">'+(p.price===0?'رایگان':toman(p.price))+' — '+esc(p.desc)+'</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="openEditServicePlan(\''+p.id+'\')">'+ic('edit',14)+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title tight"><h2>🧩 قیمت‌گذاری خدمات آنلاین</h2></div><div class="small-muted" style="margin-bottom:12px;">این پنج خدمت پس از دریافت لایسنس در دسترس کاربران قرار می‌گیرد؛ قیمت هرکدام را اینجا تنظیم کنید (صفر = رایگان).</div>'+formHtml+'<div class="stack">'+(list||'<p class="muted">سرویسی تعریف نشده است.</p>')+'</div></div>';
-}
-function openEditServicePlan(id){ var item=S.adminData.servicePlans.find(function(x){return x.id===id;}); if(!item) return; S.formType='servicePlanEdit'; S.formMode='edit'; S.formId=id; S.form=clone(item); render(); window.scrollTo(0,0); }
-async function saveServicePlan(){
-  if(!S.form.title.trim()){ alert('عنوان را وارد کنید.'); return; }
-  S.form.price = Number(S.form.price)||0;
-  S.adminData.servicePlans = S.adminData.servicePlans.map(function(x){ return x.id===S.formId?S.form:x; });
-  cancelForm();
-  await persistAndRender();
-}
-
-// ============================================================
-// پایگاه دانش (منابع چت — بدون هوش مصنوعی، فقط جست‌وجوی کلیدواژه‌ای)
-// ============================================================
-function renderKbAdmin(){
-  var d=S.adminData; d.knowledgeBase = d.knowledgeBase || [];
-  var formHtml='';
-  if(S.formType==='kbItem'){
-    var f=S.form; f.sourceType = f.sourceType || 'text';
-    var typeOptions = [
-      {v:'text', l:'متن دستی'}, {v:'pdf', l:'فایل PDF'}, {v:'image', l:'عکس (OCR)'}, {v:'excel', l:'فایل اکسل'}, {v:'link', l:'لینک وب'}
-    ].map(function(o){ return '<option value="'+o.v+'" '+(f.sourceType===o.v?'selected':'')+'>'+o.l+'</option>'; }).join('');
-    var extractorHtml = '';
-    if (f.sourceType==='pdf') extractorHtml = '<label class="field"><span class="field-label">فایل PDF</span><input type="file" accept="application/pdf" onchange="onKbExtractFile(\'pdf\', this)" /></label>';
-    else if (f.sourceType==='image') extractorHtml = '<label class="field"><span class="field-label">فایل عکس</span><input type="file" accept="image/*" onchange="onKbExtractFile(\'image\', this)" /></label><div class="small-muted">استخراج متن از عکس (OCR) ممکن است چند ثانیه طول بکشد.</div>';
-    else if (f.sourceType==='excel') extractorHtml = '<label class="field"><span class="field-label">فایل اکسل</span><input type="file" accept=".xlsx,.xls,.csv" onchange="onKbExtractFile(\'excel\', this)" /></label>';
-    else if (f.sourceType==='link') extractorHtml = '<label class="field"><span class="field-label">آدرس لینک</span><input type="text" id="kbLinkUrlInput" value="'+esc(f.sourceUrl||'')+'" placeholder="https://example.com/article" /></label><button class="btn btn-ghost btn-sm" onclick="onKbFetchLink()">'+ic('download',13)+'<span>دریافت متن از لینک</span></button>';
-    formHtml='<div class="form-box"><label class="field"><span class="field-label">عنوان</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
-      '<label class="field"><span class="field-label">کلیدواژه‌ها (با کاما جدا کنید)</span><input type="text" value="'+esc((f.keywords||[]).join('، '))+'" oninput="S.form.keywords=this.value.split(/[,،]/).map(function(s){return s.trim();}).filter(Boolean)" /></label>' +
-      '<label class="field"><span class="field-label">نوع منبع</span><select onchange="onKbSourceTypeChange(this.value)">'+typeOptions+'</select></label>' +
-      extractorHtml +
-      (S.kbExtracting?'<div class="small-muted" style="margin:8px 0;color:var(--gold);">⏳ در حال استخراج متن...</div>':'') +
-      (S.kbExtractError?'<div class="field-error" style="margin:8px 0;">'+esc(S.kbExtractError)+'</div>':'') +
-      '<label class="field" style="margin-top:8px;"><span class="field-label">متن نهایی (پس از استخراج قابل ویرایش است — فقط همین متن مبنای پاسخ‌گویی قرار می‌گیرد)</span><textarea rows="7" oninput="S.form.content=this.value">'+esc(f.content)+'</textarea></label>' +
-      (f.content?('<div class="small-muted">طول متن: '+toFa(f.content.length)+' نویسه</div>'):'') +
-      '<div class="btn-row start"><button class="btn btn-primary" onclick="saveForm()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
-  }
-  var typeLabels = {text:'متن', pdf:'PDF', image:'عکس', excel:'اکسل', link:'لینک'};
-  var list=d.knowledgeBase.map(function(k){
-    var typeBadge = '<span class="badge badge-ink">'+(typeLabels[k.sourceType]||'متن')+'</span>';
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(k.title)+' '+typeBadge+'</div><div class="row-sub">'+esc((k.keywords||[]).join('، '))+' — '+toFa((k.content||'').length)+' نویسه</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="openEditForm(\'kbItem\',\''+k.id+'\')">'+ic('edit',14)+'</button><button class="icon-btn danger" onclick="deleteItem(\'kbItem\',\''+k.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>📚 پایگاه دانش (منابع چت)</h2></div>'+(S.formType==='kbItem'?'':'<button class="btn btn-primary btn-sm" onclick="openAddForm(\'kbItem\')">'+ic('plus',13)+'<span>منبع جدید</span></button>')+'</div>' +
-    '<div class="alert-box info" style="margin-bottom:12px;">'+ic('info',14)+'<span>پاسخ چت فقط از همین متن‌ها ساخته می‌شود؛ نه حدس، نه دانش عمومی. PDF/عکس/اکسل/لینک را آپلود کنید تا متنشان استخراج و اینجا نمایش داده شود، سپس در صورت نیاز ویرایش و ذخیره کنید.</span></div>' +
-    formHtml+'<div class="stack">'+(list||'<p class="muted">منبعی ثبت نشده است.</p>')+'</div></div>';
-}
-function onKbSourceTypeChange(v){ S.form.sourceType=v; S.kbExtractError=''; render(); }
-async function onKbExtractFile(kind, inputEl){
-  var file = inputEl.files && inputEl.files[0];
-  if(!file) return;
-  S.form.sourceName = file.name;
-  S.kbExtracting = true; S.kbExtractError=''; render();
-  try{
-    var text = '';
-    if(kind==='pdf') text = await extractPdfText(file);
-    else if(kind==='excel') text = await extractExcelText(file);
-    else if(kind==='image') text = await extractImageText(file);
-    if(!text) throw new Error('متنی از فایل استخراج نشد.');
-    S.form.content = text.slice(0, 30000);
-  }catch(e){
-    S.kbExtractError = 'استخراج متن ناموفق بود: '+((e&&e.message)||e);
-  }
-  S.kbExtracting=false; render();
-}
-async function onKbFetchLink(){
-  var el = document.getElementById('kbLinkUrlInput');
-  var url = el?el.value.trim():'';
-  if(!url) return;
-  S.form.sourceUrl = url;
-  S.kbExtracting = true; S.kbExtractError=''; render();
-  try{
-    var r = await Api.adminFetchLink(S.adminToken, url);
-    S.form.content = (r.text||'').slice(0, 30000);
-    if(!S.form.content) throw new Error('متنی از لینک استخراج نشد.');
-  }catch(e){ S.kbExtractError = 'دریافت متن از لینک ناموفق بود.'; }
-  S.kbExtracting=false; render();
-}
-
-// ---- کتابخانه‌های استخراج متن — فقط هنگام نیاز، از CDN بارگذاری می‌شوند ----
-var __loadedScripts = {};
-function loadScript(src){
-  if (__loadedScripts[src]) return __loadedScripts[src];
-  __loadedScripts[src] = new Promise(function(resolve, reject){
-    var s = document.createElement('script');
-    s.src = src; s.onload = function(){ resolve(); }; s.onerror = function(){ reject(new Error('بارگذاری کتابخانه ناموفق بود.')); };
-    document.head.appendChild(s);
-  });
-  return __loadedScripts[src];
-}
-async function extractPdfText(file){
-  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js');
-  window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-  var buf = await file.arrayBuffer();
-  var pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
-  var text = '';
-  for (var i=1; i<=pdf.numPages; i++){
-    var page = await pdf.getPage(i);
-    var content = await page.getTextContent();
-    text += content.items.map(function(it){ return it.str; }).join(' ') + '\n\n';
-  }
-  return text.trim();
-}
-async function extractExcelText(file){
-  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
-  var buf = await file.arrayBuffer();
-  var wb = window.XLSX.read(buf, { type:'array' });
-  var out = [];
-  wb.SheetNames.forEach(function(name){
-    out.push('--- '+name+' ---\n'+window.XLSX.utils.sheet_to_csv(wb.Sheets[name]));
-  });
-  return out.join('\n\n').trim();
-}
-async function extractImageText(file){
-  await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
-  var result = await window.Tesseract.recognize(file, 'fas+eng');
-  return ((result && result.data && result.data.text) || '').trim();
-}
-
-// ============================================================
-// چک‌لیست حسابرسی داخلی
-// ============================================================
-function renderAuditAdmin(){
-  var d=S.adminData; d.auditChecklist = d.auditChecklist || [];
-  var formHtml='';
-  if(S.formType==='auditItem'){
-    var f=S.form;
-    formHtml='<div class="form-box"><label class="field"><span class="field-label">متن مورد چک‌لیست</span><input type="text" value="'+esc(f.title)+'" oninput="S.form.title=this.value" /></label>' +
-      '<div class="btn-row start"><button class="btn btn-primary" onclick="saveForm()">ذخیره</button><button class="btn btn-ghost" onclick="cancelForm()">انصراف</button></div></div>';
-  }
-  var list=d.auditChecklist.map(function(a){
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(a.title)+'</div></div>' +
-      '<div class="row-actions"><button class="icon-btn" onclick="openEditForm(\'auditItem\',\''+a.id+'\')">'+ic('edit',14)+'</button><button class="icon-btn danger" onclick="deleteItem(\'auditItem\',\''+a.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>✅ چک‌لیست حسابرسی داخلی</h2></div>'+(S.formType==='auditItem'?'':'<button class="btn btn-primary btn-sm" onclick="openAddForm(\'auditItem\')">'+ic('plus',13)+'<span>مورد جدید</span></button>')+'</div>'+formHtml+'<div class="stack">'+(list||'<p class="muted">موردی ثبت نشده است.</p>')+'</div></div>';
-}
-
-// ============================================================
-// درخواست‌های خدمات آنلاین (مشاورهٔ فایل، بررسی پرونده)
-// ============================================================
-function renderServiceRequestsAdmin(){
-  var d=S.adminData; d.serviceRequests = d.serviceRequests || [];
-  var q=(S.serviceReqQuery||'').trim();
-  var filtered = d.serviceRequests.filter(function(r){ return !q || (r.name&&r.name.indexOf(q)!==-1) || (r.phone&&r.phone.indexOf(q)!==-1); });
-  var svcLabels = {consultFile:'مشاورهٔ آنلاین با مدرک', caseCheck:'بررسی پروندهٔ مالیاتی'};
-  var list = filtered.slice().reverse().map(function(r){
-    var sub = 'نوع: '+esc(svcLabels[r.serviceKey]||r.serviceKey)+(r.caseNumber?(' — شمارهٔ پرونده: '+esc(r.caseNumber)):'')+(r.note?(' — '+esc(r.note)):'')+' — '+new Date(r.createdAt).toLocaleString('fa-IR');
-    var fileBtn = r.fileId ? '<button class="btn btn-ghost btn-sm" onclick="downloadServiceFile(\''+r.fileId+'\',\''+esc(r.fileName||'file')+'\')">'+ic('download',13)+'<span>دانلود مدرک</span></button>' : '';
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(r.name)+' — '+esc(r.phone)+'</div><div class="row-sub">'+sub+'</div>'+(fileBtn?'<div style="margin-top:8px;">'+fileBtn+'</div>':'')+'</div>' +
-      '<div class="row-actions"><button class="icon-btn danger" onclick="deleteServiceRequest(\''+r.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title tight"><h2>🗂 درخواست‌های خدمات آنلاین</h2></div>' +
-    '<div class="search-wrap" style="margin:12px 0 16px;"><span class="search-icon">'+ic('search',15)+'</span><input type="text" value="'+esc(S.serviceReqQuery)+'" oninput="S.serviceReqQuery=this.value; render();" placeholder="جستجو..." /></div>' +
-    '<div class="stack">'+(filtered.length===0?'<p class="muted">درخواستی ثبت نشده است.</p>':list)+'</div></div>';
-}
-async function deleteServiceRequest(id){ if(!confirm('حذف شود؟')) return; S.adminData.serviceRequests = S.adminData.serviceRequests.filter(function(r){return r.id!==id;}); await persistAndRender(); }
-async function downloadServiceFile(fileId, filename){
-  try{
-    var f = await Api.adminGetFile(S.adminToken, fileId);
-    var byteChars = atob(f.dataBase64);
-    var bytes = new Uint8Array(byteChars.length);
-    for (var i=0;i<byteChars.length;i++) bytes[i]=byteChars.charCodeAt(i);
-    var blob = new Blob([bytes], {type: f.mimeType||'application/octet-stream'});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a'); a.href=url; a.download = f.filename || filename || 'file'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  }catch(e){ alert('دانلود فایل ناموفق بود.'); }
-}
-
-// ============================================================
-// درخواست‌های تماس برای دریافت لایسنس
-// ============================================================
-function renderLicenseRequestsAdmin(){
-  var d=S.adminData; d.licenseRequests = d.licenseRequests || [];
-  var ctxLabels = {quota:'سقف اجرای رایگان', 'penalties-gate':'گیت مشاهدهٔ جرایم', chat:'سقف سؤالات چت'};
-  var list = d.licenseRequests.slice().reverse().map(function(r){
-    var ctx = ctxLabels[r.context] || (r.context && r.context.indexOf('service-')===0 ? 'خدمت آنلاین: '+r.context.replace('service-','') : r.context) || '-';
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(r.name)+' — '+esc(r.phone)+'</div>' +
-      '<div class="row-sub">درخواست از: '+esc(ctx)+' — '+new Date(r.createdAt).toLocaleString('fa-IR')+'</div></div>' +
-      '<div class="row-actions"><button class="icon-btn danger" onclick="deleteLicenseRequest(\''+r.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title tight"><h2>📞 درخواست‌های تماس برای لایسنس</h2></div>' +
-    '<div class="small-muted" style="margin-bottom:12px;">وقتی کاربری به سقف رایگان می‌رسد و دکمهٔ «درخواست تماس» را می‌زند، اینجا و در ایمیل شما ثبت می‌شود.</div>' +
-    '<div class="stack">'+(list||'<p class="muted">درخواستی ثبت نشده است.</p>')+'</div></div>';
-}
-async function deleteLicenseRequest(id){ if(!confirm('حذف شود؟')) return; S.adminData.licenseRequests = S.adminData.licenseRequests.filter(function(r){return r.id!==id;}); await persistAndRender(); }
-
-// ============================================================
-// درخواست‌ها (لیدها)
-// ============================================================
-function renderLeadsAdmin(){
-  var d=S.adminData;
-  var q=(S.leadsQuery||'').trim();
-  var filtered=d.leads.filter(function(l){ return !q || (l.name&&l.name.indexOf(q)!==-1) || (l.phone&&l.phone.indexOf(q)!==-1); });
-  var list=filtered.slice().reverse().map(function(l){
-    var statusOptions=LEAD_STATUSES.map(function(s){ return '<option value="'+s+'" '+((l.status||'جدید')===s?'selected':'')+'>'+s+'</option>'; }).join('');
-    var extra='<div style="margin-top:8px;max-width:220px;"><select onchange="updateLeadStatus(\''+l.id+'\', this.value)">'+statusOptions+'</select></div>';
-    var sub='نوع: '+esc(l.personType||'—')+' — بسته: '+esc(l.planTitle||'—')+' — جرایم: '+toman(l.totalRaw)+(l.note?(' — '+esc(l.note)):'')+' — '+new Date(l.createdAt).toLocaleString('fa-IR');
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(l.name)+' — '+esc(l.phone)+'</div><div class="row-sub">'+sub+'</div>'+extra+'</div>' +
-      '<div class="row-actions"><button class="icon-btn danger" onclick="deleteLead(\''+l.id+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title-row"><div class="section-title tight"><h2>📨 درخواست‌ها</h2></div><button class="btn btn-ghost btn-sm" '+(d.leads.length===0?'disabled':'')+' onclick="exportLeadsCSV()">'+ic('download',13)+'<span>CSV</span></button></div>' +
-    '<div class="search-wrap" style="margin-bottom:16px;"><span class="search-icon">'+ic('search',15)+'</span><input type="text" value="'+esc(S.leadsQuery)+'" oninput="onLeadsQueryInput(this.value)" placeholder="جستجو..." /></div>' +
-    '<div class="stack">'+(filtered.length===0?'<p class="muted">درخواستی ثبت نشده است.</p>':list)+'</div></div>';
-}
-async function updateLeadStatus(id, status){ S.adminData.leads = S.adminData.leads.map(function(l){ return l.id===id?Object.assign({},l,{status:status}):l; }); await persistAndRender(); }
-async function deleteLead(id){ if(!confirm('حذف شود؟')) return; S.adminData.leads = S.adminData.leads.filter(function(l){return l.id!==id;}); await persistAndRender(); }
-function onLeadsQueryInput(v){ S.leadsQuery=v; render(); }
-function exportLeadsCSV(){
-  var header=['نام','شماره','نوع مؤدی','بسته','جرایم','وضعیت','توضیحات','تاریخ'];
-  var rows=S.adminData.leads.map(function(l){ return [l.name,l.phone,l.personType||'',l.planTitle||'',l.totalRaw||0,l.status||'جدید',(l.note||'').replace(/\n/g,' '),l.createdAt]; });
-  var csv=[header].concat(rows).map(function(r){ return r.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(','); }).join('\r\n');
-  var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}); var url=URL.createObjectURL(blob);
-  var a=document.createElement('a'); a.href=url; a.download='leads.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-}
-
-// ============================================================
-// لایسنس‌ها
-// ============================================================
-var SCOPE_OPTIONS = [
-  {key:'wizard', label:'محاسبهٔ جرایم و لایحه'},
-  {key:'chat', label:'چت با منابع'},
-  {key:'upload', label:'مشاورهٔ بررسی مدارک'},
-  {key:'case', label:'وضعیت پرونده'},
-  {key:'reminder', label:'یادآور مواعد'},
-  {key:'audit', label:'چک‌لیست حسابرسی'}
-];
-function scopeLabel(scope){
-  if (!scope || !scope.length || scope.indexOf('all')!==-1) return 'دسترسی کامل';
-  return scope.map(function(k){ var f=SCOPE_OPTIONS.find(function(s){return s.key===k;}); return f?f.label:k; }).join('، ');
-}
-function renderLicensesAdmin(){
-  var d=S.adminData;
-  var now=Date.now();
-  var licenseRows=d.licenses.map(function(l){
-    var expired=l.expiresAt && new Date(l.expiresAt).getTime()<now;
-    var statusBadge=expired?'<span class="badge badge-red">منقضی</span>':'<span class="badge badge-green">فعال</span>';
-    var durLabel=(LICENSE_DURATIONS.find(function(dd){return dd.months===l.durationMonths;})||{}).label||(toFa(l.durationMonths||0)+' ماهه');
-    var boundLabel = l.boundPhone ? (' — فعال‌شده توسط '+esc(l.boundPhone)) : ' — هنوز فعال نشده';
-    var sub=(l.note?esc(l.note)+' — ':'')+durLabel+' — '+scopeLabel(l.scope)+boundLabel+' — ثبت: '+new Date(l.createdAt).toLocaleDateString('fa-IR')+(l.expiresAt?(' — انقضا: '+new Date(l.expiresAt).toLocaleDateString('fa-IR')):'')+' '+statusBadge;
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(l.code)+'</div><div class="row-sub">'+sub+'</div></div>' +
-      '<div class="row-actions">'+(l.boundPhone?'<button class="icon-btn" title="آزادسازی برای استفادهٔ دوباره" onclick="unbindLicense(\''+l.code+'\')">'+ic('logout',14)+'</button>':'')+'<button class="icon-btn danger" onclick="deleteLicense(\''+l.code+'\')">'+ic('trash',14,'var(--red)')+'</button></div></div>';
-  }).join('');
-  var logsRows=d.licenseLogs.slice().reverse().slice(0,25).map(function(l){ return '<div class="small-muted" style="padding:4px 0;border-bottom:1px solid var(--line);">کد <b>'+esc(l.code)+'</b>'+(l.phone?(' — '+esc(l.phone)):'')+' — '+new Date(l.at).toLocaleString('fa-IR')+'</div>'; }).join('');
-  var durationRadios=LICENSE_DURATIONS.map(function(dd){ return '<label class="radio-row"><input type="radio" name="licDuration" '+(S.newLicenseDuration===dd.months?'checked':'')+' onchange="setNewLicenseDuration('+dd.months+')" /><span>'+dd.label+'</span></label>'; }).join('');
-  var scopeChecks = SCOPE_OPTIONS.map(function(s){
-    return '<label class="checkbox-row"><input type="checkbox" '+((S.newLicenseScope||[]).indexOf(s.key)!==-1?'checked':'')+' onchange="toggleNewLicenseScope(\''+s.key+'\', this.checked)" /><span>'+s.label+'</span></label>';
-  }).join('');
-  return '<div class="card"><div class="section-title tight"><h2>🔑 کدهای فعال‌سازی</h2></div><p class="muted" style="margin:8px 0 16px;">ساخت کدهای ۳، ۶ و ۱۲ ماهه — هر کد فقط برای اولین شماره‌ای که آن را فعال کند کار می‌کند.</p>' +
-    '<div class="block" style="margin-bottom:18px;"><label class="checkbox-row"><input type="checkbox" '+(d.meta.defaultLicenseEnabled!==false?'checked':'')+' onchange="toggleDefaultLicense(this.checked)" /><span style="font-weight:700;">فعال‌سازی پیش‌فرض</span></label>' +
-    '<div class="grid2" style="margin-top:10px;"><label class="field"><span class="field-label">کد پیش‌فرض</span><input type="text" id="defaultLicenseCodeInput" value="'+esc(d.meta.defaultLicenseCode||'123')+'" /></label><div style="align-self:end;"><button class="btn btn-ghost" onclick="saveDefaultLicenseCode()">ذخیره</button></div></div></div>' +
-    '<div class="form-box"><div class="grid3"><label class="field"><span class="field-label">کد</span><input type="text" id="newLicenseCodeInput" placeholder="A1B2C3" /></label>' +
-    '<label class="field"><span class="field-label">یادداشت</span><input type="text" id="newLicenseNoteInput" placeholder="نام مشتری" /></label>' +
-    '<div style="align-self:end;display:flex;gap:8px;"><button class="btn btn-ghost" onclick="fillGeneratedLicenseCode()">تولید</button><button class="btn btn-primary" onclick="addLicense()">افزودن</button></div></div>' +
-    '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:6px;">'+durationRadios+'</div>' +
-    '<div style="margin-top:10px;"><label class="checkbox-row"><input type="checkbox" '+(S.newLicenseScopeLimited?'checked':'')+' onchange="toggleScopeLimited(this.checked)" /><span class="small-muted">محدود به خدمات خاص (پیش‌فرض: دسترسی کامل به همه چیز)</span></label>' +
-    (S.newLicenseScopeLimited?'<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;">'+scopeChecks+'</div>':'') + '</div></div>' +
-    '<div class="stack" style="margin-bottom:18px;">'+(licenseRows||'<p class="muted">کدی ثبت نشده است.</p>')+'</div>' +
-    '<div class="section-title-row"><div style="font-weight:800;">گزارش استفاده</div><button class="btn btn-ghost btn-sm" onclick="clearLicenseLogs()">پاک</button></div>' +
-    '<div class="block">'+(logsRows||'<span class="small-muted">موردی ثبت نشده است.</span>')+'</div></div>';
-}
-function genLicenseCode(){ var chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; var s=''; for(var i=0;i<6;i++) s+=chars[Math.floor(Math.random()*chars.length)]; return s; }
-function fillGeneratedLicenseCode(){ var el=document.getElementById('newLicenseCodeInput'); if(el) el.value=genLicenseCode(); }
-function setNewLicenseDuration(m){ S.newLicenseDuration=Number(m); render(); }
-function toggleScopeLimited(checked){ S.newLicenseScopeLimited=checked; if(!checked) S.newLicenseScope=[]; render(); }
-function toggleNewLicenseScope(key, checked){
-  S.newLicenseScope = S.newLicenseScope||[];
-  if(checked){ if(S.newLicenseScope.indexOf(key)===-1) S.newLicenseScope.push(key); }
-  else { S.newLicenseScope = S.newLicenseScope.filter(function(k){return k!==key;}); }
-  render();
-}
-async function addLicense(){
-  var codeEl=document.getElementById('newLicenseCodeInput'), noteEl=document.getElementById('newLicenseNoteInput');
-  var code=codeEl?codeEl.value.trim():'', note=noteEl?noteEl.value.trim():''; var months=S.newLicenseDuration||3;
-  if(!code){ alert('کد را وارد کنید.'); return; }
-  if(S.adminData.licenses.some(function(l){return l.code===code;})){ alert('کد تکراری است.'); return; }
-  var createdAt=new Date().toISOString();
-  var scope = (S.newLicenseScopeLimited && S.newLicenseScope && S.newLicenseScope.length) ? S.newLicenseScope.slice() : ['all'];
-  S.adminData.licenses.push({code:code, note:note, durationMonths:months, createdAt:createdAt, expiresAt:addMonthsIso(createdAt, months), scope:scope, boundPhone:null});
-  S.newLicenseScopeLimited=false; S.newLicenseScope=[];
-  await persistAndRender();
-}
-async function unbindLicense(code){
-  if(!confirm('این کد آزاد شود تا دوباره (برای شمارهٔ دیگری) قابل فعال‌سازی باشد؟')) return;
-  var lic = S.adminData.licenses.find(function(l){return l.code===code;});
-  if (lic) { lic.boundPhone = null; lic.boundAt = null; }
-  await persistAndRender();
-}
-async function deleteLicense(code){ if(!confirm('حذف شود؟')) return; S.adminData.licenses = S.adminData.licenses.filter(function(l){return l.code!==code;}); await persistAndRender(); }
-async function toggleDefaultLicense(checked){ S.adminData.meta.defaultLicenseEnabled=checked; await persistAndRender(); }
-async function saveDefaultLicenseCode(){ var el=document.getElementById('defaultLicenseCodeInput'); S.adminData.meta.defaultLicenseCode=el?el.value.trim():'123'; await persistAndRender(); }
-async function clearLicenseLogs(){ if(!confirm('پاک شود؟')) return; S.adminData.licenseLogs=[]; await persistAndRender(); }
-
-// ============================================================
-// اخبار مالیاتی مهم
-// ============================================================
-function renderNewsAdmin(){
-  var d=S.adminData;
-  d.news = d.news || [];
-  var editing = S.editingNewsId ? d.news.find(function(n){return n.id===S.editingNewsId;}) : null;
-  var rows = d.news.slice().sort(function(a,b){ return (b.pinned-a.pinned) || (new Date(b.createdAt)-new Date(a.createdAt)); }).map(function(n){
-    var expired = n.expiresAt && new Date(n.expiresAt).getTime()<Date.now();
-    var statusBadge = expired ? '<span class="badge badge-red">منقضی</span>' : (n.level==='urgent' ? '<span class="badge badge-red">فوری</span>' : '<span class="badge badge-gold">عادی</span>');
-    var sub = esc(n.body) + ' — ثبت: ' + new Date(n.createdAt).toLocaleDateString('fa-IR') + (n.expiresAt?(' — تا: '+new Date(n.expiresAt).toLocaleDateString('fa-IR')):'') + ' ' + statusBadge + (n.pinned?' <span class="badge badge-green">سنجاق‌شده</span>':'');
-    return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(n.title)+'</div><div class="row-sub">'+sub+'</div></div>' +
-      '<div class="row-actions">' +
-      '<button class="icon-btn" title="سنجاق/برداشتن سنجاق" onclick="toggleNewsPin(\''+n.id+'\')">'+ic('shield',14)+'</button>' +
-      '<button class="icon-btn" title="ویرایش" onclick="editNews(\''+n.id+'\')">'+ic('edit',14)+'</button>' +
-      '<button class="icon-btn danger" title="حذف" onclick="deleteNews(\''+n.id+'\')">'+ic('trash',14,'var(--red)')+'</button>' +
-      '</div></div>';
-  }).join('');
-  return '<div class="card"><div class="section-title tight"><h2>📢 اخبار مالیاتی</h2></div>' +
-    '<p class="muted" style="margin:8px 0 16px;">مهم‌ترین خبر فعال، به‌صورت یک بنر برجسته بالای صفحهٔ اصلی به همهٔ کاربران نشان داده می‌شود (مثلاً «مهلت تسلیم اظهارنامه تمدید شد»).</p>' +
-    '<div class="form-box">' +
-    '<label class="field"><span class="field-label">عنوان</span><input type="text" id="newsTitleInput" value="'+(editing?esc(editing.title):'')+'" placeholder="مثلاً: تمدید مهلت اظهارنامه" /></label>' +
-    '<label class="field"><span class="field-label">متن کامل</span><textarea id="newsBodyInput" rows="3" placeholder="توضیح کوتاه و شفاف">'+(editing?esc(editing.body):'')+'</textarea></label>' +
-    '<div class="grid2"><label class="field"><span class="field-label">سطح اهمیت</span><select id="newsLevelInput"><option value="info" '+(editing&&editing.level!=='urgent'?'selected':'')+'>عادی</option><option value="urgent" '+(editing&&editing.level==='urgent'?'selected':'')+'>فوری (قرمز)</option></select></label>' +
-    '<label class="field"><span class="field-label">تاریخ انقضا (اختیاری)</span><input type="date" id="newsExpiresInput" value="'+(editing&&editing.expiresAt?editing.expiresAt.slice(0,10):'')+'" /></label></div>' +
-    '<label class="checkbox-row"><input type="checkbox" id="newsPinnedInput" '+(editing&&editing.pinned?'checked':'')+' /><span>سنجاق شود (همیشه بالاتر از بقیه نشان داده شود)</span></label>' +
-    '<div class="btn-row start" style="margin-top:10px;"><button class="btn btn-primary" onclick="addOrUpdateNews()">'+(editing?'به‌روزرسانی':'انتشار خبر')+'</button>'+(editing?'<button class="btn btn-ghost" onclick="cancelEditNews()">انصراف</button>':'')+'</div>' +
-    '</div>' +
-    '<div class="stack" style="margin-top:18px;">'+(rows||'<p class="muted">هنوز خبری ثبت نشده است.</p>')+'</div></div>';
-}
-async function addOrUpdateNews(){
-  var titleEl=document.getElementById('newsTitleInput'), bodyEl=document.getElementById('newsBodyInput'), levelEl=document.getElementById('newsLevelInput'), expEl=document.getElementById('newsExpiresInput'), pinEl=document.getElementById('newsPinnedInput');
-  var title=titleEl?titleEl.value.trim():'', body=bodyEl?bodyEl.value.trim():'';
-  if(!title || !body){ alert('عنوان و متن خبر را وارد کنید.'); return; }
-  var level = levelEl?levelEl.value:'info';
-  var expiresAt = expEl&&expEl.value ? new Date(expEl.value+'T23:59:59').toISOString() : null;
-  var pinned = pinEl?pinEl.checked:false;
-  S.adminData.news = S.adminData.news||[];
-  if (S.editingNewsId) {
-    var n = S.adminData.news.find(function(x){return x.id===S.editingNewsId;});
-    if (n) { n.title=title; n.body=body; n.level=level; n.expiresAt=expiresAt; n.pinned=pinned; }
-    S.editingNewsId = null;
-  } else {
-    S.adminData.news.push({ id:'news_'+Date.now().toString(36), title:title, body:body, level:level, expiresAt:expiresAt, pinned:pinned, createdAt:new Date().toISOString() });
-  }
-  await persistAndRender();
-}
-function editNews(id){ S.editingNewsId=id; render(); window.scrollTo(0,0); }
-function cancelEditNews(){ S.editingNewsId=null; render(); }
-async function deleteNews(id){ if(!confirm('این خبر حذف شود؟')) return; S.adminData.news = (S.adminData.news||[]).filter(function(n){return n.id!==id;}); await persistAndRender(); }
-async function toggleNewsPin(id){ var n=(S.adminData.news||[]).find(function(x){return x.id===id;}); if(n) n.pinned=!n.pinned; await persistAndRender(); }
-
-// ============================================================
-// پشتیبان‌گیری
-// ============================================================
-function renderBackupsAdmin(){
-  if (!S.backupsRequested) { S.backupsRequested = true; loadBackupsList(); }
-  var listHtml;
-  if (S.backupsLoading && !(S.backupsList && S.backupsList.length)) {
-    listHtml = '<p class="muted">در حال بارگذاری فهرست نسخه‌ها...</p>';
-  } else if (S.backupsError) {
-    listHtml = '<p class="muted" style="color:var(--red);">'+esc(S.backupsError)+'</p>';
-  } else if (!S.backupsList || !S.backupsList.length) {
-    listHtml = '<p class="muted">هنوز نسخهٔ پشتیبان خودکاری ثبت نشده. اولین‌بار که تنظیمات را ذخیره کنید، یا اگر Cron روزانه فعال باشد، یک نسخه ساخته می‌شود.</p>';
-  } else {
-    listHtml = '<div class="stack">' + S.backupsList.map(function(b){
-      var d = new Date(b.at);
-      var label = isNaN(d.getTime()) ? b.at : d.toLocaleString('fa-IR');
-      return '<div class="admin-row"><div class="row-main"><div class="row-title">'+esc(label)+'</div></div>' +
-        '<div class="row-actions">' +
-        '<button class="icon-btn" title="دانلود" onclick="downloadBackupByKey(\''+esc(b.key)+'\')">'+ic('download',14)+'</button>' +
-        '<button class="icon-btn" title="بازگردانی این نسخه" onclick="restoreBackup(\''+esc(b.key)+'\')">'+ic('logout',14)+'</button>' +
-        '</div></div>';
-    }).join('') + '</div>';
-  }
-  return '<div class="card"><div class="section-title tight"><h2>🗄 پشتیبان‌گیری</h2></div>' +
-    '<p class="muted" style="margin:8px 0 16px;">پیش از هر ذخیرهٔ تنظیمات، و همچنین یک‌بار در روز (در صورت فعال بودن Cron روی Worker)، یک نسخهٔ پشتیبان خودکار ساخته می‌شود. حداکثر ۱۴ نسخهٔ آخر نگه‌داری می‌شود.</p>' +
-    '<div class="btn-row start" style="margin-bottom:16px;"><button class="btn btn-primary" onclick="downloadCurrentBackup()">'+ic('download',15)+'<span>دانلود نسخهٔ فعلی (دستی)</span></button>' +
-    '<button class="btn btn-ghost" onclick="S.backupsRequested=false; render();">'+ic('trend',15)+'<span>به‌روزرسانی فهرست</span></button></div>' +
-    listHtml + '</div>';
-}
-function downloadJson(filename, data){
-  var blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a'); a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-function downloadCurrentBackup(){
-  downloadJson('maliyar-backup-'+(new Date().toISOString().slice(0,10))+'.json', S.adminData);
-}
-async function loadBackupsList(){
-  S.backupsLoading = true; S.backupsError = ''; render();
-  try{
-    var res = await Api.adminBackups(S.adminToken);
-    S.backupsList = res.backups || [];
-  }catch(e){ S.backupsError = 'دریافت فهرست نسخه‌های پشتیبان ناموفق بود.'; }
-  S.backupsLoading = false; render();
-}
-async function downloadBackupByKey(key){
-  try{
-    var data = await Api.adminBackupGet(S.adminToken, key);
-    downloadJson(key.replace(/[:/]/g,'-')+'.json', data);
-  }catch(e){ alert('دانلود این نسخهٔ پشتیبان ناموفق بود.'); }
-}
-async function restoreBackup(key){
-  if(!confirm('با بازگردانی این نسخه، داده‌ها و تنظیمات فعلی با این نسخهٔ قدیمی‌تر جایگزین می‌شود (وضعیت فعلی هم پیش از این کار خودکار پشتیبان‌گیری می‌شود). ادامه می‌دهید؟')) return;
-  S.backupsLoading = true; render();
-  try{
-    await Api.adminRestore(S.adminToken, key);
-    alert('بازگردانی انجام شد.');
-    S.backupsRequested = false;
-    var data = await Api.adminGetData(S.adminToken);
-    S.adminData = data;
-  }catch(e){ alert('بازگردانی ناموفق بود.'); }
-  S.backupsLoading = false; render();
-}
-
-// ============================================================
-// تنظیمات
-// ============================================================
-function renderSettingsAdmin(){
-  var m=S.adminData.meta;
-  var userUrl=window.location.origin+window.location.pathname+'#/';
-  var adminUrl=window.location.origin+window.location.pathname+'#/admin';
-  return '<div class="card"><div class="section-title tight"><h2>⚙️ تنظیمات</h2></div>' +
-    '<div class="alert-box info">🔗 لینک ورود کاربران: <code class="tpl-var">'+esc(userUrl)+'</code></div>' +
-    '<div class="alert-box ok">🔐 لینک ورود مدیریت: <code class="tpl-var">'+esc(adminUrl)+'</code></div>' +
-    '<div class="alert-box info" style="margin-top:8px;">رمز ورود پنل مدیریت از طریق Secret مربوط به Cloudflare Worker (متغیر <code class="tpl-var">ADMIN_PASSWORD</code>) تنظیم می‌شود، نه از این صفحه — برای تغییرش به راهنما مراجعه کنید.</div>' +
-    '<div style="margin-top:14px;">' +
-    '<label class="field"><span class="field-label">نام برند</span><input type="text" id="brandNameInput" value="'+esc(m.brandName)+'" /></label>' +
-    '<label class="field"><span class="field-label">شعار</span><input type="text" id="taglineInput" value="'+esc(m.tagline)+'" /></label>' +
-    '<label class="field"><span class="field-label">توضیح سئو (متا دیسکریپشن)</span><textarea id="seoDescInput" rows="2">'+esc(m.seoDescription||'')+'</textarea></label>' +
-    '<label class="field"><span class="field-label">شماره تماس</span><input type="text" id="phoneInput" value="'+esc(m.phone)+'" /></label>' +
-    '<label class="field"><span class="field-label">واتس‌اپ</span><input type="text" id="whatsappInput" value="'+esc(m.whatsapp||'')+'" placeholder="989121234567" /></label>' +
-    '<label class="field"><span class="field-label">ایمیل دریافت درخواست‌ها</span><input type="text" id="notifyEmailInput" value="'+esc(m.notifyEmail||'')+'" /></label>' +
-    '<label class="field"><span class="field-label">تعداد اجرای کامل رایگان (قبل از نیاز به فعال‌سازی)</span><input type="number" id="freeQueryLimitInput" value="'+esc(m.freeQueryLimit!=null?m.freeQueryLimit:2)+'" min="0" /></label>' +
-    '<label class="field"><span class="field-label">تعداد سؤال رایگان در چت با منابع (قبل از نیاز به فعال‌سازی)</span><input type="number" id="chatFreeLimitInput" value="'+esc(m.chatFreeLimit!=null?m.chatFreeLimit:2)+'" min="0" /></label>' +
-    '<label class="field"><span class="field-label">متن تبلیغاتی (نوار متحرک)</span><textarea id="adTextInput" rows="2">'+esc(m.adText||'')+'</textarea></label>' +
-    '<label class="checkbox-row"><input type="checkbox" id="adEnabledInput" '+(m.adEnabled!==false?'checked':'')+' /><span>نمایش نوار تبلیغاتی</span></label>' +
-    '<label class="field"><span class="field-label">متن شرایط و قوانین (هنگام ورود کاربر نمایش داده می‌شود)</span><textarea id="termsTextInput" rows="4">'+esc(m.termsText||'')+'</textarea></label>' +
-    '<div class="btn-row start"><button class="btn btn-primary" onclick="saveSettings()">ذخیره</button>'+(S.settingsSaved?'<span class="small-muted" style="color:var(--green);">✅ ذخیره شد</span>':'')+'</div></div>' +
-    '<div class="block" style="margin-top:18px;"><div style="font-weight:800;font-size:13.5px;margin-bottom:6px;">🤖 پاسخ‌گویی هوشمند چت با منابع</div>' +
-    '<div class="small-muted" style="margin-bottom:10px;">با فعال‌کردن این گزینه، پاسخ چت با کمک Cloudflare Workers AI (رایگان در سهمیهٔ روزانه، بدون کلید یا حساب جداگانه) نوشته می‌شود — ولی همیشه فقط بر اساس متن پایگاه دانش، بدون حدس؛ اگر پاسخ در منابع نباشد، صادقانه اعلام می‌کند. برای کارکردن این گزینه، باید در تنظیمات Worker خودتان (Settings → Bindings) یک Workers AI Binding با نام <code class="tpl-var">AI</code> اضافه کرده باشید؛ در غیر این صورت چت بدون هوش مصنوعی و فقط با نمایش بریدهٔ خام منابع کار می‌کند (که آن هم کاملاً قابل اتکاست، فقط خلاصه‌تر است).</div>' +
-    '<label class="checkbox-row"><input type="checkbox" id="aiAnswersEnabledInput" '+(m.aiAnswersEnabled?'checked':'')+' /><span>فعال‌سازی پاسخ‌گویی هوشمند مبتنی بر منابع</span></label>' +
-    '<div class="btn-row start"><button class="btn btn-primary" onclick="saveSettings()">ذخیره</button></div></div>' +
-    '<div class="block" style="margin-top:18px;"><div style="font-weight:800;font-size:13.5px;margin-bottom:10px;">🔔 تنظیمات یادآور مواعد</div>' +
-    '<label class="checkbox-row"><input type="checkbox" id="reminderEmailEnabledInput" '+((m.reminderSettings&&m.reminderSettings.emailEnabled!==false)?'checked':'')+' /><span>ارسال یادآور از طریق ایمیل</span></label>' +
-    '<label class="field" style="margin-top:8px;"><span class="field-label">چند روز قبل از موعد یادآوری ارسال شود؟</span><input type="number" id="reminderWindowInput" value="'+esc((m.reminderSettings&&m.reminderSettings.reminderWindowDays!=null)?m.reminderSettings.reminderWindowDays:3)+'" min="0" /></label>' +
-    '<label class="checkbox-row" style="margin-top:8px;"><input type="checkbox" id="smsEnabledInput" '+((m.reminderSettings&&m.reminderSettings.smsEnabled)?'checked':'')+' /><span>ارسال یادآور از طریق پیامک (کاوه‌نگار)</span></label>' +
-    '<div class="grid2" style="margin-top:8px;"><label class="field"><span class="field-label">کلید API کاوه‌نگار</span><input type="password" id="smsApiKeyInput" value="'+esc((m.reminderSettings&&m.reminderSettings.smsApiKey)||'')+'" /></label>' +
-    '<label class="field"><span class="field-label">نام فرستنده (اختیاری)</span><input type="text" id="smsSenderInput" value="'+esc((m.reminderSettings&&m.reminderSettings.smsSender)||'')+'" /></label></div>' +
-    '<div class="btn-row start"><button class="btn btn-primary" onclick="saveSettings()">ذخیره</button></div></div>' +
-    '<div class="block" style="margin-top:18px;"><div style="font-weight:800;font-size:13.5px;margin-bottom:6px;">🔒 امنیت واکشی لینک (پایگاه دانش)</div>' +
-    '<div class="small-muted" style="margin-bottom:10px;">وقتی از پنل «پایگاه دانش» یک لینک را برای استخراج محتوا وارد می‌کنید، اگر اینجا دامنه‌ای مجاز کرده باشید، فقط همان دامنه‌ها قابل واکشی هستند (برای جلوگیری از سوءاستفاده). اگر خالی بگذارید، مثل قبل هر لینکی قابل واکشی است.</div>' +
-    '<label class="field"><span class="field-label">دامنه‌های مجاز (با کاما جدا کنید — اختیاری)</span><input type="text" id="allowedFetchHostsInput" value="'+esc((m.allowedFetchHosts||[]).join(', '))+'" placeholder="intamedia.ir, rrk.ir" /></label>' +
-    '<div class="btn-row start"><button class="btn btn-primary" onclick="saveSettings()">ذخیره</button></div></div>' +
-    '<div class="block" style="margin-top:18px;"><div style="font-weight:800;font-size:13.5px;margin-bottom:6px;">🔄 به‌روزرسانی محتوای قانونی</div>' +
-    '<div class="small-muted" style="margin-bottom:10px;">سوالات، تکالیف و جرایم را به آخرین نسخه‌ای که در کد Worker تعریف شده به‌روز می‌کند. کاربران، درخواست‌ها، کدهای فعال‌سازی و تنظیمات برند شما دست‌نخورده می‌مانند.</div>' +
-    '<button class="btn btn-gold" '+(S.reseedLoading?'disabled':'')+' onclick="reseedContent()">'+ic('refresh',15)+'<span>'+(S.reseedLoading?'در حال به‌روزرسانی...':'به‌روزرسانی سوالات و تکالیف')+'</span></button>' +
-    (S.reseedMsg?'<div class="small-muted" style="margin-top:8px;color:var(--green);">'+esc(S.reseedMsg)+'</div>':'') +
-    '</div></div>';
-}
-async function reseedContent(){
-  if(!confirm('سوالات، تکالیف و جرایم فعلی با نسخهٔ جدید جایگزین می‌شود (کاربران و درخواست‌ها دست‌نخورده می‌مانند). ادامه می‌دهید؟')) return;
-  S.reseedLoading = true; S.reseedMsg=''; render();
-  try{
-    await Api._fetch('/api/admin/reseed-content', { method:'POST', headers:{ 'Authorization':'Bearer '+S.adminToken } });
-    var data = await Api.adminGetData(S.adminToken);
-    S.adminData = data;
-    apiStatus='online';
-    S.reseedMsg = '✅ محتوا با موفقیت به‌روزرسانی شد.';
-  }catch(e){
-    apiStatus='offline';
-    S.reseedMsg = '❌ به‌روزرسانی ناموفق بود. دوباره تلاش کنید.';
-  }
-  S.reseedLoading = false; render();
-}
-async function saveSettings(){
-  var ids=['brandNameInput','taglineInput','seoDescInput','phoneInput','whatsappInput','notifyEmailInput','adTextInput','freeQueryLimitInput','chatFreeLimitInput','termsTextInput','reminderWindowInput','smsApiKeyInput','smsSenderInput','allowedFetchHostsInput'];
-  var vals={}; ids.forEach(function(id){ var el=document.getElementById(id); if(el) vals[id]=el.value; });
-  var m=S.adminData.meta;
-  m.brandName=vals.brandNameInput||m.brandName; m.tagline=vals.taglineInput||''; m.seoDescription=vals.seoDescInput||'';
-  m.phone=vals.phoneInput||''; m.whatsapp=vals.whatsappInput||''; m.notifyEmail=vals.notifyEmailInput||'';
-  m.adText=vals.adTextInput||''; m.freeQueryLimit=Math.max(0,parseInt(vals.freeQueryLimitInput,10)||0);
-  m.chatFreeLimit=Math.max(0,parseInt(vals.chatFreeLimitInput,10)||0);
-  m.termsText=vals.termsTextInput||m.termsText;
-  var adEl=document.getElementById('adEnabledInput'); m.adEnabled=adEl?adEl.checked:true;
-  var aiEl=document.getElementById('aiAnswersEnabledInput'); m.aiAnswersEnabled=aiEl?aiEl.checked:false;
-  m.reminderSettings = m.reminderSettings || {};
-  var remEmailEl=document.getElementById('reminderEmailEnabledInput'); m.reminderSettings.emailEnabled = remEmailEl?remEmailEl.checked:true;
-  m.reminderSettings.reminderWindowDays = Math.max(0, parseInt(vals.reminderWindowInput,10)||3);
-  var smsEl=document.getElementById('smsEnabledInput'); m.reminderSettings.smsEnabled = smsEl?smsEl.checked:false;
-  m.reminderSettings.smsApiKey = vals.smsApiKeyInput||'';
-  m.reminderSettings.smsSender = vals.smsSenderInput||'';
-  m.reminderSettings.smsProvider = 'kavenegar';
-  m.allowedFetchHosts = (vals.allowedFetchHostsInput||'').split(',').map(function(s){return s.trim().toLowerCase();}).filter(Boolean);
-  await persistAndRender();
-  S.settingsSaved=true; render(); setTimeout(function(){ S.settingsSaved=false; render(); },1800);
-}
-
-function renderGuideAdmin(){
-  return '<div class="card"><div class="section-title tight"><h2>📖 راهنما</h2></div>' +
-    '<div class="block"><div style="font-weight:800;">۱. معماری</div><div class="small-muted">همهٔ داده‌ها یک بلاک JSON در Cloudflare KV است. فرانت‌اند (این صفحه، روی گیت‌هاب) فقط با API که روی Cloudflare Worker است صحبت می‌کند.</div></div>' +
-    '<div class="block"><div style="font-weight:800;">۲. تغییر رمز مدیریت</div><div class="small-muted">در پنل Cloudflare → Worker → Settings → Variables and Secrets → مقدار <code class="tpl-var">ADMIN_PASSWORD</code> را تغییر دهید.</div></div>' +
-    '<div class="block"><div style="font-weight:800;">۳. درخت سوالات</div><div class="small-muted">در تب «درخت سوالات» برای هر سوال، بعد از هر پاسخ می‌توانید «سوال بعدی» و «تکالیفی که فعال می‌شود» را تعیین کنید. اگر «سوال بعدی» خالی بماند، مسیر پایان می‌یابد و کاربر مستقیم به صفحهٔ تکالیف می‌رود.</div></div>' +
-    '<div class="block"><div style="font-weight:800;">۴. راهنمای کامل نصب</div><div class="small-muted">فایل <code class="tpl-var">README.md</code> همراه این پروژه را ببینید.</div></div></div>';
-}
-
-// ============================================================
-// فرم‌های عمومی (تکالیف/جرایم/قالب/بسته)
-// ============================================================
-var EMPTY_MAKERS={
-  obligation:function(){ return {id:genId('o'), title:'', appliesTo:['حقیقی','حقوقی'], fixed:false, description:'', deadline:'', reminderAfterDays:20, penaltyIds:[]}; },
-  penalty:function(){ return {id:genId('p'), title:'', description:'', calcType:'fixed', value:0, amnestyEligible:false, amnestyPercent:0, amnestyCondition:'', installmentEligible:false, maxInstallments:1, legalArticle:''}; },
-  template:function(){ return {id:genId('t'), title:'', body:''}; },
-  plan:function(){ return {id:genId('pl'), title:'', price:0, duration:'', desc:''}; },
-  kbItem:function(){ return {id:genId('kb'), title:'', keywords:[], content:'', sourceType:'text', sourceName:'', sourceUrl:''}; },
-  auditItem:function(){ return {id:genId('ac'), title:''}; }
-};
-var COLL_KEY={obligation:'obligations', penalty:'penalties', template:'templates', plan:'plans', kbItem:'knowledgeBase', auditItem:'auditChecklist'};
-
-function openAddForm(type){ S.formType=type; S.formMode='add'; S.formId=null; S.form=EMPTY_MAKERS[type](); render(); window.scrollTo(0,0); }
-function openEditForm(type,id){ var coll=S.adminData[COLL_KEY[type]]; var item=coll.find(function(x){return x.id===id;}); if(!item) return; S.formType=type; S.formMode='edit'; S.formId=id; S.form=clone(item); render(); window.scrollTo(0,0); }
-async function deleteItem(type,id){ if(!confirm('حذف شود؟')) return; var key=COLL_KEY[type]; S.adminData[key]=S.adminData[key].filter(function(x){return x.id!==id;}); await persistAndRender(); }
-async function saveForm(){
-  var key=COLL_KEY[S.formType];
-  if((S.formType==='obligation'||S.formType==='penalty'||S.formType==='template'||S.formType==='plan'||S.formType==='kbItem'||S.formType==='auditItem') && !S.form.title.trim()){ alert('عنوان را وارد کنید.'); return; }
-  if(S.formType==='plan'){ S.form.price=Number(S.form.price)||0; }
-  if(S.formType==='penalty'){ S.form.value=Number(S.form.value)||0; S.form.amnestyPercent=Number(S.form.amnestyPercent)||0; S.form.maxInstallments=Number(S.form.maxInstallments)||1; }
-  if(S.formType==='obligation'){ S.form.reminderAfterDays=Number(S.form.reminderAfterDays)||20; }
-  if(S.formMode==='add'){ S.adminData[key].push(S.form); }
-  else { S.adminData[key]=S.adminData[key].map(function(x){ return x.id===S.formId?S.form:x; }); }
-  cancelForm();
-  await persistAndRender();
-}
-function toggleAppliesTo(kind){ var arr=S.form.appliesTo||[]; var idx=arr.indexOf(kind); if(idx===-1) arr=arr.concat([kind]); else arr=arr.filter(function(x){return x!==kind;}); S.form.appliesTo=arr; render(); }
-function toggleMultiId(field,id){ var arr=S.form[field]||[]; var idx=arr.indexOf(id); if(idx===-1) arr=arr.concat([id]); else arr=arr.filter(function(x){return x!==id;}); S.form[field]=arr; render(); }
-function renderMultiCheck(allItems, selectedIds, field){
-  return '<div class="multi-check">'+allItems.map(function(item){
-    var checked=(selectedIds||[]).indexOf(item.id)!==-1;
-    return '<label class="checkbox-row"><input type="checkbox" '+(checked?'checked':'')+' onchange="toggleMultiId(\''+field+'\',\''+item.id+'\')" /><span>'+esc(item.title||item.text)+'</span></label>';
-  }).join('')+'</div>';
-}
-
-// ============================================================
-// راه‌اندازی برنامه
-// ============================================================
-async function boot(){
-  onRoute();
-  capturePendingReferral();
-  restoreAuthSession();
-  initPwaInstall();
-  registerServiceWorker();
-  render();
-
-  try{
-    CATALOG = await Api.getData();
-    apiStatus = 'online';
-  }catch(e){
-    apiStatus = 'offline';
-  }
-
-  if (S.route === 'admin') {
-    await tryRestoreAdminSession();
-  }
-
-  if (!S.wiz.lead.planId && CATALOG.plans && CATALOG.plans[0]) S.wiz.lead.planId = CATALOG.plans[0].id;
-  if (!S.wiz.templateId && CATALOG.templates && CATALOG.templates[0]) S.wiz.templateId = CATALOG.templates[0].id;
-
-  render();
-}
-
-if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', boot); } else { boot(); }
-</script>
-</body>
-</html>
+  return '<div class="ca
